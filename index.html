@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeCA Transportes / Carta de Porte Digital</title>
+  <!-- SDK Gratuito de Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Librería para exportar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Librería para generar códigos QR -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #f0f4f8; margin: 0; padding: 12px; color: #1a202c; }
+    .container { max-width: 760px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    
+    .hidden { display: none !important; }
+    
+    /* LOGIN */
+    .auth-box { max-width: 450px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    .auth-title { color: #1d4ed8; font-size: 2rem; font-weight: 800; margin: 0 0 6px 0; }
+    .auth-sub { color: #64748b; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.4; }
+    
+    .nav-pills { display: flex; gap: 8px; background: #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 20px; }
+    .btn-pill { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; background: transparent; color: #475569; transition: all 0.2s; }
+    .btn-pill.active { background: #2563eb; color: white; }
+    
+    /* FORMULARIO Y SECCIONES */
+    h2 { text-align: center; color: #1e3a8a; margin: 0 0 4px 0; font-size: 1.5rem; }
+    .subtitle { text-align: center; color: #64748b; font-size: 0.85rem; margin-bottom: 16px; }
+    
+    .section-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+    .section-title { font-weight: 700; color: #1e3a8a; font-size: 0.95rem; margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+
+    .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #eff6ff; padding: 12px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #bfdbfe; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .field-group { margin-bottom: 12px; }
+    label { font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.88rem; color: #334155; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
+    
+    /* TARJETAS DE PORTES */
+    .card-porte { background: #ffffff; border: 1px solid #cbd5e1; border-left: 5px solid #2563eb; border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .card-porte.done { border-left-color: #10b981; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 8px; }
+    .card-ref { color: #1e3a8a; font-size: 1.05rem; }
+    .card-status { font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; background: #dbeafe; color: #1e40af; }
+    .card-status.done { background: #d1fae5; color: #065f46; }
+    .card-body { font-size: 0.88rem; line-height: 1.5; color: #475569; }
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-sm { padding: 6px 10px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
+
+    /* FIRMAS Y ARCHIVOS */
+    .file-input { font-size: 0.85rem; background: #fff; padding: 6px; }
+    .signature-container { background: #fff; border: 1px dashed #94a3b8; border-radius: 6px; padding: 8px; margin-top: 6px; text-align: center; }
+    canvas { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; touch-action: none; width: 100%; height: 130px; cursor: crosshair; }
+    .signature-meta { font-size: 0.75rem; color: #047857; font-weight: 600; margin-top: 4px; min-height: 16px; }
+    .btn-secondary { background: #64748b; color: white; border: none; padding: 6px 10px; font-size: 0.78rem; border-radius: 4px; cursor: pointer; margin-top: 4px; }
+    
+    .btn-action { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    .btn-action:hover { background: #1d4ed8; }
+    .btn-logout { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; font-size: 0.8rem; }
+
+    /* MODAL QR POLICIAL */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+    .modal-content { background: white; padding: 24px; border-radius: 12px; text-align: center; max-width: 360px; width: 90%; }
+    .modal-content #qrInspectBox { display: flex; justify-content: center; margin: 15px 0; }
+
+    /* PLANTILLA PDF OCULTA */
+    #pdfTemplate { font-family: Arial, sans-serif; padding: 20px; color: #000; background: #fff; width: 100%; min-height: 297mm; box-sizing: border-box; }
+    .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px; }
+    .pdf-title { font-size: 18px; font-weight: bold; color: #1e3a8a; }
+    .pdf-box { border: 1px solid #000; padding: 8px; margin-bottom: 10px; font-size: 11px; min-height: 40px; }
+    .pdf-box-title { font-weight: bold; background: #f0f0f0; padding: 3px; margin: -8px -8px 6px -8px; border-bottom: 1px solid #000; }
+    .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pdf-img { max-width: 150px; max-height: 100px; border: 1px solid #ccc; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+<!-- PANTALLA INICIO DE SESIÓN -->
+<div id="viewAuth" class="auth-box">
+  <h1 class="auth-title">DeCA Transportes</h1>
+  <p class="auth-sub">Documentación digital de control de transporte en la nube.</p>
+
+  <div class="nav-pills">
+    <button id="tabLoginBtn" class="btn-pill active" type="button" onclick="switchAuthTab('login')">Iniciar Sesión</button>
+    <button id="tabRegisterBtn" class="btn-pill" type="button" onclick="switchAuthTab('register')">Registrarse</button>
+  </div>
+
+  <form id="formLogin" onsubmit="handleLogin(event)">
+    <div class="field-group">
+      <label for="loginEmail">Correo Electrónico</label>
+      <input type="email" id="loginEmail" required placeholder="tu@email.com">
+    </div>
+    <div class="field-group">
+      <label for="loginPassword">Contraseña</label>
+      <input type="password" id="loginPassword" required placeholder="******">
+    </div>
+    <button type="submit" class="btn-action">Entrar a la Plataforma</button>
+  </form>
+
+  <form id="formRegister" class="hidden" onsubmit="handleRegister(event)">
+    <div class="field-group">
+      <label for="regNombre">Nombre / Razón Social</label>
+      <input type="text" id="regNombre" required placeholder="Ej. Transportes Irazabalbeitia">
+    </div>
+    <div class="field-group">
+      <label for="regCif">DNI / CIF</label>
+      <input type="text" id="regCif" required placeholder="12345678X">
+    </div>
+    <div class="field-group">
+      <label for="regDireccion">Dirección Fiscal</label>
+      <input type="text" id="regDireccion" placeholder="Ej. Barrio Olabarrieta 12, Bergara">
+    </div>
+    <div class="field-group">
+      <label for="regEmail">Correo Electrónico</label>
+      <input type="email" id="regEmail" required placeholder="tu@email.com">
+    </div>
+    <div class="field-group">
+      <label for="regPassword">Contraseña</label>
+      <input type="password" id="regPassword" required placeholder="Mínimo 6 caracteres">
+    </div>
+    <button type="submit" class="btn-action" style="background: #059669;">Crear Cuenta Gratuita</button>
+  </form>
+</div>
+
+<!-- PANTALLA PRINCIPAL -->
+<div id="viewApp" class="container hidden">
+  <button class="btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
+  <h2>CARTA DE PORTE ELECTRÓNICA</h2>
+  <div class="subtitle">Gestión de Documentos de Control (DeCA / e-CMR)</div>
+
+  <!-- NAVEGACIÓN SECCIONES -->
+  <div class="nav-pills">
+    <button id="tabNuevoBtn" class="btn-pill active" onclick="switchAppTab('nuevo')">+ Nuevo Porte</button>
+    <button id="tabTransitBtn" class="btn-pill" onclick="switchAppTab('transito')">En Tránsito (<span id="countTransit">0</span>)</button>
+    <button id="tabDoneBtn" class="btn-pill" onclick="switchAppTab('terminados')">Terminados (<span id="countDone">0</span>)</button>
+  </div>
+
+  <!-- SECCIÓN 1: FORMULARIO NUEVO PORTE -->
+  <div id="secNuevoPorte">
+    <div class="header-grid">
+      <div>
+        <label>Ref. Expedición:</label>
+        <input type="text" id="numReferencia" readonly style="font-weight: bold; color: #1e3a8a;" placeholder="Generando número...">
+      </div>
+      <div>
+        <label>Fecha de Carga:</label>
+        <input type="date" id="fechaCarga">
+      </div>
+    </div>
+
+    <!-- CARGADOR -->
+    <div class="section-box">
+      <div class="section-title">1. Cargador Contractual (Cliente)</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label>Razón Social / Nombre:</label>
+          <input type="text" id="cargadorNombre" list="listCargadoresNombre" placeholder="Ej. ESPYTES S.L." oninput="autocompletarCargador('nombre')">
+          <datalist id="listCargadoresNombre"></datalist>
+        </div>
+        <div class="field-group">
+          <label>CIF / DNI:</label>
+          <input type="text" id="cargadorCif" list="listCargadoresCif" placeholder="B12345678" oninput="autocompletarCargador('cif')">
+          <datalist id="listCargadoresCif"></datalist>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Dirección Completa:</label>
+        <input type="text" id="cargadorDireccion" placeholder="Polígono Industrial, C/ Principal 5, Elgeta">
+      </div>
+    </div>
+
+    <!-- ORIGEN Y DESTINO -->
+    <div class="grid-2">
+      <div class="field-group">
+        <label>2. Lugar de Carga (Origen):</label>
+        <input type="text" id="lugarCarga" placeholder="Ej. ESPYTES - Elgeta">
+      </div>
+      <div class="field-group">
+        <label>3. Lugar de Descarga (Destino):</label>
+        <input type="text" id="lugarDescarga" placeholder="Ej. Plaiber - Bergara">
+      </div>
+    </div>
+
+    <!-- TRANSPORTISTA -->
+    <div class="section-box">
+      <div class="section-title">4. Transportista y Vehículo</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label>Razón Social / Nombre:</label>
+          <input type="text" id="transpNombre" placeholder="Razón social transportista">
+        </div>
+        <div class="field-group">
+          <label>CIF / DNI:</label>
+          <input type="text" id="transpCif" placeholder="CIF / DNI transportista">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Dirección Completa:</label>
+        <input type="text" id="transpDireccion" placeholder="Dirección transportista">
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label>Matrícula Camión / Tractor:</label>
+          <input type="text" id="transpMatricula" placeholder="1234-BBB">
+        </div>
+        <div class="field-group">
+          <label>Matrícula Remolque / Semirremolque:</label>
+          <input type="text" id="transpRemolque" placeholder="R-1234-BBB (Opcional)">
+        </div>
+      </div>
+    </div>
+
+    <!-- MERCANCÍA -->
+    <div class="section-box">
+      <div class="section-title">5. Naturaleza de la Mercancía</div>
+      <div class="field-group">
+        <label>Descripción de la Mercancía:</label>
+        <input type="text" id="mercancia" placeholder="Ej: 1 cont. 400kg / Paletas de tornillería">
+      </div>
+      <div class="field-group">
+        <label>Fotografía de la Carga (Opcional):</label>
+        <input type="file" id="fotoMercancia" accept="image/*" capture="environment" class="file-input">
+      </div>
+    </div>
+
+    <!-- OBSERVACIONES -->
+    <div class="section-box">
+      <div class="section-title">6. Reservas u Observaciones</div>
+      <div class="field-group">
+        <label>Observaciones / Incidencias:</label>
+        <textarea id="observaciones" rows="2" placeholder="Ej: Embalaje dañado en origen, palé remontado..."></textarea>
+      </div>
+      <div class="field-group">
+        <label>Fotografía de Reservas / Incidencias (Opcional):</label>
+        <input type="file" id="fotoObservaciones" accept="image/*" capture="environment" class="file-input">
+      </div>
+    </div>
+
+    <!-- FIRMAS ORIGEN -->
+    <div class="section-box">
+      <div class="section-title">7. Firmas de la Expedición (Origen)</div>
+
+      <!-- Cargador -->
+      <div style="margin-bottom: 16px;">
+        <label style="color: #1e3a8a;">Firma del Cargador / Expedidor:</label>
+        <div class="grid-3">
+          <input type="text" id="cargadorFirmaNombre" placeholder="Nombre">
+          <input type="text" id="cargadorFirmaApellidos" placeholder="Apellidos">
+          <input type="text" id="cargadorFirmaDni" placeholder="DNI / NIF">
+        </div>
+        <div class="signature-container">
+          <canvas id="canvasCargador"></canvas>
+          <div id="metaCargador" class="signature-meta"></div>
+          <button class="btn-secondary" onclick="limpiarCanvas('canvasCargador', 'metaCargador')">Borrar Firma</button>
+        </div>
+      </div>
+
+      <!-- Transportista -->
+      <div>
+        <label style="color: #1e3a8a;">Firma del Transportista:</label>
+        <div class="grid-3">
+          <input type="text" id="transpFirmaNombre" placeholder="Nombre">
+          <input type="text" id="transpFirmaApellidos" placeholder="Apellidos">
+          <input type="text" id="transpFirmaDni" placeholder="DNI / NIF">
+        </div>
+        <div class="signature-container">
+          <canvas id="canvasTransportista"></canvas>
+          <div id="metaTransportista" class="signature-meta"></div>
+          <button class="btn-secondary" onclick="limpiarCanvas('canvasTransportista', 'metaTransportista')">Borrar Firma</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="btnGenerarMain" class="btn-action" onclick="procesarYSubirNube()">Emitir e-CMR y Guardar en Nube</button>
+  </div>
+
+  <!-- SECCIÓN 2: PORTES EN TRÁNSITO -->
+  <div id="secTransito" class="hidden">
+    <div id="listTransit"></div>
+  </div>
+
+  <!-- SECCIÓN 3: PORTES TERMINADOS -->
+  <div id="secTerminados" class="hidden">
+    <div id="listDone"></div>
+  </div>
+
+  <!-- SECCIÓN FIRMA DESTINO (DESCARGA) -->
+  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f6ff;">
+    <div class="section-title" style="color: #1d4ed8;">Firma de Recepción en Destino</div>
+    <p style="font-size: 0.85rem; color: #475569;">Ref: <b id="destRefDisplay">---</b> | Entrega de mercancía.</p>
+
+    <div class="grid-3">
+      <input type="text" id="destFirmaNombre" placeholder="Nombre Destinatario">
+      <input type="text" id="destFirmaApellidos" placeholder="Apellidos">
+      <input type="text" id="destFirmaDni" placeholder="DNI / NIF">
+    </div>
+    <div class="signature-container">
+      <canvas id="canvasDestinatario"></canvas>
+      <div id="metaDestinatario" class="signature-meta"></div>
+      <button class="btn-secondary" onclick="limpiarCanvas('canvasDestinatario', 'metaDestinatario')">Borrar Firma</button>
+    </div>
+    
+    <div class="grid-2" style="margin-top: 12px;">
+      <button class="btn-action" style="background: #059669;" onclick="completarEntregaDestino()">Confirmar Entrega y Finalizar</button>
+      <button class="btn-action" style="background: #64748b;" onclick="cancelarFirmaDestino()">Volver</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL QR PARA INSPECCIÓN POLICIAL -->
+<div id="modalQR" class="modal-overlay hidden">
+  <div class="modal-content">
+    <h3 style="margin: 0; color: #1e3a8a;">Control Administrativo e-CMR</h3>
+    <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Código QR de verificación para inspección</p>
+    <div id="qrInspectBox"></div>
+    <div id="qrInspectRef" style="font-weight: bold; margin-bottom: 12px; font-size: 0.9rem;"></div>
+    <button class="btn-action" style="background: #475569;" onclick="cerrarModalQR()">Cerrar / Volver</button>
+  </div>
+</div>
+
+<!-- CONTENEDOR OCULTO PARA RENDERING DEL PDF -->
+<div id="pdfRenderArea" class="hidden">
+  <div id="pdfTemplate">
+    <div class="pdf-header">
+      <div>
+        <div class="pdf-title">CARTA DE PORTE ELECTRÓNICA (e-CMR / DeCA)</div>
+        <div style="font-size: 11px; color: #555;">Documento Digital de Control de Transporte</div>
+      </div>
+      <div id="qrcodePdf"></div>
+    </div>
+
+    <div class="pdf-grid">
+      <div class="pdf-box">
+        <div class="pdf-box-title">REF. EXPEDICIÓN Y FECHA</div>
+        <b>Ref:</b> <span id="pNumRef"></span><br>
+        <b>Fecha Carga:</b> <span id="pFechaCarga"></span>
+      </div>
+      <div class="pdf-box">
+        <div class="pdf-box-title">1. CARGADOR CONTRACTUAL</div>
+        <b>Razón Social:</b> <span id="pCargadorNombre"></span><br>
+        <b>CIF/DNI:</b> <span id="pCargadorCif"></span><br>
+        <b>Dirección:</b> <span id="pCargadorDir"></span>
+      </div>
+    </div>
+
+    <div class="pdf-grid">
+      <div class="pdf-box">
+        <div class="pdf-box-title">2. LUGAR DE CARGA (ORIGEN)</div>
+        <span id="pLugarCarga"></span>
+      </div>
+      <div class="pdf-box">
+        <div class="pdf-box-title">3. LUGAR DE DESCARGA (DESTINO)</div>
+        <span id="pLugarDescarga"></span>
+      </div>
+    </div>
+
+    <div class="pdf-box">
+      <div class="pdf-box-title">4. TRANSPORTISTA Y VEHÍCULO</div>
+      <b>Razón Social:</b> <span id="pTranspNombre"></span> | <b>CIF:</b> <span id="pTranspCif"></span><br>
+      <b>Dirección:</b> <span id="pTranspDir"></span><br>
+      <b>Matrícula Camión:</b> <span id="pTranspMat"></span> | <b>Remolque:</b> <span id="pTranspRem"></span>
+    </div>
+
+    <div class="pdf-box">
+      <div class="pdf-box-title">5. NATURALEZA DE LA MERCANCÍA</div>
+      <span id="pMercancia"></span>
+      <div id="pFotoMercanciaArea"></div>
+    </div>
+
+    <div class="pdf-box">
+      <div class="pdf-box-title">6. RESERVAS U OBSERVACIONES</div>
+      <span id="pObservaciones"></span>
+      <div id="pFotoObservacionesArea"></div>
+    </div>
+
+    <div class="pdf-box">
+      <div class="pdf-box-title">7. FIRMAS Y REGISTRO GPS / HORA</div>
+      <div class="pdf-grid">
+        <div>
+          <b>Cargador:</b> <span id="pSignCargadorDatos"></span><br>
+          <img id="pImgCargador" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+        </div>
+        <div>
+          <b>Transportista:</b> <span id="pSignTranspDatos"></span><br>
+          <img id="pImgTransp" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+        </div>
+      </div>
+      <div style="margin-top: 8px;">
+        <b>Destinatario:</b> <span id="pSignDestDatos"></span><br>
+        <img id="pImgDest" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://pfjqfxnpafodtvfrpgga.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_qTNMD8uWnMdNeHt1JKiudg_Pyq7I2Bp";
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let urlPdfGlobal = "";
+  let portes = [];
+  let cargadoresGuardados = [];
+  let porteEnEdicionIndex = null;
+
+  function cargarMemoria() {
+    const dataPortes = localStorage.getItem('decamrs_portes');
+    portes = dataPortes ? JSON.parse(dataPortes) : [];
+
+    const dataCargadores = localStorage.getItem('decamrs_cargadores');
+    cargadoresGuardados = dataCargadores ? JSON.parse(dataCargadores) : [];
+
+    renderizarListas();
+    actualizarDesplegablesCargadores();
+  }
+
+  function guardarMemoria() {
+    localStorage.setItem('decamrs_portes', JSON.stringify(portes));
+    localStorage.setItem('decamrs_cargadores', JSON.stringify(cargadoresGuardados));
+    renderizarListas();
+    actualizarDesplegablesCargadores();
+  }
+
+  function guardarCargadorSiEsNuevo(nombre, cif, direccion) {
+    if (!nombre || nombre === "---") return;
+    const existe = cargadoresGuardados.find(c => c.nombre.toLowerCase() === nombre.toLowerCase() || (cif && c.cif && c.cif.toLowerCase() === cif.toLowerCase()));
+    if (!existe) {
+      cargadoresGuardados.push({ nombre, cif, direccion });
+    } else {
+      if (cif && cif !== "---") existe.cif = cif;
+      if (direccion && direccion !== "---") existe.direccion = direccion;
+    }
+  }
+
+  function actualizarDesplegablesCargadores() {
+    const listNombre = document.getElementById('listCargadoresNombre');
+    const listCif = document.getElementById('listCargadoresCif');
+    listNombre.innerHTML = "";
+    listCif.innerHTML = "";
+
+    cargadoresGuardados.forEach(c => {
+      if (c.nombre) {
+        const optN = document.createElement('option');
+        optN.value = c.nombre;
+        listNombre.appendChild(optN);
+      }
+      if (c.cif) {
+        const optC = document.createElement('option');
+        optC.value = c.cif;
+        listCif.appendChild(optC);
+      }
+    });
+  }
+
+  function autocompletarCargador(origen) {
+    const valNombre = document.getElementById('cargadorNombre').value.trim().toLowerCase();
+    const valCif = document.getElementById('cargadorCif').value.trim().toLowerCase();
+
+    let coincidencia = null;
+    if (origen === 'nombre' && valNombre.length > 1) {
+      coincidencia = cargadoresGuardados.find(c => c.nombre.toLowerCase() === valNombre);
+    } else if (origen === 'cif' && valCif.length > 2) {
+      coincidencia = cargadoresGuardados.find(c => c.cif && c.cif.toLowerCase() === valCif);
+    }
+
+    if (coincidencia) {
+      if (coincidencia.nombre) document.getElementById('cargadorNombre').value = coincidencia.nombre;
+      if (coincidencia.cif) document.getElementById('cargadorCif').value = coincidencia.cif;
+      if (coincidencia.direccion) document.getElementById('cargadorDireccion').value = coincidencia.direccion;
+    }
+  }
+
+  async function obtenerSiguienteReferencia() {
+    const añoActual = new Date().getFullYear();
+    const prefijoBase = `eCMR-${añoActual}-`;
+    let maxNum = 0;
+
+    portes.forEach(p => {
+      if (p.ref && p.ref.startsWith(prefijoBase)) {
+        const numPart = parseInt(p.ref.replace(prefijoBase, ''), 10);
+        if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+      }
+    });
+
+    try {
+      const { data: files, error } = await supabaseClient.storage.from('decamrs').list('', { limit: 1000, sortBy: { column: 'name', order: 'asc' } });
+      if (files && !error) {
+        files.forEach(f => {
+          if (f.name && f.name.startsWith(prefijoBase) && f.name.endsWith('.pdf')) {
+            const numStr = f.name.replace(prefijoBase, '').replace('.pdf', '');
+            const numPart = parseInt(numStr, 10);
+            if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Uso de contador local:", e);
+    }
+
+    const siguienteNum = maxNum + 1;
+    return `${prefijoBase}${String(siguienteNum).padStart(4, '0')}`;
+  }
+
+  function switchAppTab(tab) {
+    document.getElementById('tabNuevoBtn').classList.toggle('active', tab === 'nuevo');
+    document.getElementById('tabTransitBtn').classList.toggle('active', tab === 'transito');
+    document.getElementById('tabDoneBtn').classList.toggle('active', tab === 'terminados');
+
+    document.getElementById('secNuevoPorte').classList.toggle('hidden', tab !== 'nuevo');
+    document.getElementById('secTransito').classList.toggle('hidden', tab !== 'transito');
+    document.getElementById('secTerminados').classList.toggle('hidden', tab !== 'terminados');
+    document.getElementById('secFirmaDestino').classList.add('hidden');
+  }
+
+  function switchAuthTab(tab) {
+    document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
+    document.getElementById('tabRegisterBtn').classList.toggle('active', tab === 'register');
+    document.getElementById('formLogin').classList.toggle('hidden', tab !== 'login');
+    document.getElementById('formRegister').classList.toggle('hidden', tab !== 'register');
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const email = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPassword').value;
+    const { data, error } = await supabaseClient.auth.signUp({
+      email, password,
+      options: { data: { nombre_empresa: document.getElementById('regNombre').value, cif: document.getElementById('regCif').value, direccion: document.getElementById('regDireccion').value } }
+    });
+    if (error) { alert("Error: " + error.message); }
+    else { cargarAppUsuario(data.user); }
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: document.getElementById('loginEmail').value,
+      password: document.getElementById('loginPassword').value
+    });
+    if (error) { alert("Error: " + error.message); }
+    else { cargarAppUsuario(data.user); }
+  }
+
+  async function handleLogout() {
+    await supabaseClient.auth.signOut();
+    document.getElementById('viewApp').classList.add('hidden');
+    document.getElementById('viewAuth').classList.remove('hidden');
+  }
+
+  function cargarAppUsuario(user) {
+    document.getElementById('viewAuth').classList.add('hidden');
+    document.getElementById('viewApp').classList.remove('hidden');
+
+    const meta = user.user_metadata || {};
+    document.getElementById('transpNombre').value = meta.nombre_empresa || '';
+    document.getElementById('transpCif').value = meta.cif || '';
+    document.getElementById('transpDireccion').value = meta.direccion || '';
+
+    cargarMemoria();
+    nuevoFormulario();
+  }
+
+  async function nuevoFormulario() {
+    document.getElementById("fechaCarga").value = new Date().toISOString().split('T')[0];
+    document.getElementById("numReferencia").value = "Calculando...";
+    
+    const nuevaRef = await obtenerSiguienteReferencia();
+    document.getElementById("numReferencia").value = nuevaRef;
+
+    setTimeout(() => {
+      initCanvas('canvasCargador', 'metaCargador');
+      initCanvas('canvasTransportista', 'metaTransportista');
+      initCanvas('canvasDestinatario', 'metaDestinatario');
+    }, 200);
+  }
+
+  function initCanvas(canvasId, metaId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    canvas.width = canvas.offsetWidth || 350;
+    canvas.height = 130;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.lineWidth = 2; ctx.strokeStyle = "#1e3a8a";
+    let dibujando = false, firmado = false;
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function empezar(e) { dibujando = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
+    function mover(e) { if (!dibujando) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+    function parar() {
+      if (dibujando && !firmado) { firmado = true; capturarUbicacionYHora(metaId, ctx, canvas); }
+      dibujando = false;
+    }
+
+    canvas.addEventListener('mousedown', empezar); canvas.addEventListener('mousemove', mover); canvas.addEventListener('mouseup', parar);
+    canvas.addEventListener('touchstart', empezar); canvas.addEventListener('touchmove', mover); canvas.addEventListener('touchend', parar);
+  }
+
+  function capturarUbicacionYHora(metaId, ctx, canvas) {
+    const ahora = new Date().toLocaleString('es-ES');
+    let textoSello = `Fecha/Hora: ${ahora}`;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { textoSello += ` | GPS: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`; aplicarSello(metaId, ctx, canvas, textoSello); },
+        () => { textoSello += ` | GPS: No disponible`; aplicarSello(metaId, ctx, canvas, textoSello); }, 
+        { timeout: 10000, enableHighAccuracy: true }
+      );
+    } else { textoSello += ` | GPS: No soportado`; aplicarSello(metaId, ctx, canvas, textoSello); }
+  }
+
+  function aplicarSello(metaId, ctx, canvas, texto) {
+    document.getElementById(metaId).innerText = texto;
+    ctx.font = "10px sans-serif"; ctx.fillStyle = "#047857";
+    ctx.fillText(texto, 6, canvas.height - 8);
+  }
+
+  function limpiarCanvas(canvasId, metaId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById(metaId).innerText = "";
+  }
+
+  function getVal(id) {
+    const val = document.getElementById(id)?.value?.trim();
+    return (val && val !== "") ? val : "---";
+  }
+
+  async function procesarYSubirNube() {
+    const btn = document.getElementById('btnGenerarMain');
+    btn.disabled = true; btn.innerText = "Procesando y Subiendo a la Nube...";
+
+    const ref = document.getElementById('numReferencia').value;
+    const nombreArchivo = `${ref}.pdf`;
+    const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
+    urlPdfGlobal = publicUrlData.publicUrl;
+
+    guardarCargadorSiEsNuevo(getVal('cargadorNombre'), getVal('cargadorCif'), getVal('cargadorDireccion'));
+
+    document.getElementById('pNumRef').innerText = ref;
+    document.getElementById('pFechaCarga').innerText = getVal('fechaCarga');
+    document.getElementById('pCargadorNombre').innerText = getVal('cargadorNombre');
+    document.getElementById('pCargadorCif').innerText = getVal('cargadorCif');
+    document.getElementById('pCargadorDir').innerText = getVal('cargadorDireccion');
+    document.getElementById('pLugarCarga').innerText = getVal('lugarCarga');
+    document.getElementById('pLugarDescarga').innerText = getVal('lugarDescarga');
+    document.getElementById('pTranspNombre').innerText = getVal('transpNombre');
+    document.getElementById('pTranspCif').innerText = getVal('transpCif');
+    document.getElementById('pTranspDir').innerText = getVal('transpDireccion');
+    document.getElementById('pTranspMat').innerText = getVal('transpMatricula');
+    document.getElementById('pTranspRem').innerText = getVal('transpRemolque');
+    document.getElementById('pMercancia').innerText = getVal('mercancia');
+    document.getElementById('pObservaciones').innerText = getVal('observaciones');
+
+    document.getElementById('pSignCargadorDatos').innerText = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
+    document.getElementById('pSignTranspDatos').innerText = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
+    document.getElementById('pSignDestDatos').innerText = "(Pendiente de firma en destino)";
+
+    const imgCargador = document.getElementById('canvasCargador');
+    const imgTransp = document.getElementById('canvasTransportista');
+    if (imgCargador) document.getElementById('pImgCargador').src = imgCargador.toDataURL();
+    if (imgTransp) document.getElementById('pImgTransp').src = imgTransp.toDataURL();
+
+    const qrContainer = document.getElementById('qrcodePdf');
+    qrContainer.innerHTML = "";
+    new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
+
+    await procesarImagenInput('fotoMercancia', 'pFotoMercanciaArea');
+    await procesarImagenInput('fotoObservaciones', 'pFotoObservacionesArea');
+
+    const pdfRenderArea = document.getElementById('pdfRenderArea');
+    pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+    pdfRenderArea.classList.remove('hidden');
+
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    const elementoPdf = document.getElementById('pdfTemplate');
+    const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+
+    const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+
+    pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+
+    const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+    if (uploadError) {
+      alert("Error al subir el documento: " + uploadError.message);
+      btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube"; return;
+    }
+
+    portes.push({
+      ref: ref, fecha: getVal('fechaCarga'), cargador: getVal('cargadorNombre'),
+      origen: getVal('lugarCarga'), destino: getVal('lugarDescarga'), mercancia: getVal('mercancia'),
+      urlPdf: urlPdfGlobal, estado: 'transito'
+    });
+
+    guardarMemoria();
+    btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube";
+    alert("¡Documento procesado y subido correctamente a la nube!");
+    nuevoFormulario(); switchAppTab('transito');
+  }
+
+  function renderizarListas() {
+    const transitList = document.getElementById('listTransit');
+    const doneList = document.getElementById('listDone');
+    transitList.innerHTML = ""; doneList.innerHTML = "";
+
+    let inTransit = 0, isDone = 0;
+
+    portes.forEach((p, index) => {
+      const card = document.createElement('div');
+      card.className = `card-porte ${p.estado === 'terminado' ? 'done' : ''}`;
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-ref">${p.ref}</span>
+          <span class="card-status ${p.estado === 'terminado' ? 'done' : ''}">${p.estado === 'terminado' ? 'ENTREGADO' : 'EN TRÁNSITO'}</span>
+        </div>
+        <div class="card-body">
+          <b>Cargador:</b> ${p.cargador}<br>
+          <b>Origen &rarr; Destino:</b> ${p.origen} &rarr; ${p.destino}<br>
+          <b>Mercancía:</b> ${p.mercancia}
+        </div>
+        <div class="card-actions">
+          <button class="btn-sm" style="background:#15803d; color:white;" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
+          <a href="${p.urlPdf}" target="_blank" class="btn-sm" style="background:#0369a1; color:white; text-decoration:none;">Ver PDF</a>
+          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" onclick="abrirFirmaDestino(\${index})">Firmar Entrega</button>` : ''}
+        </div>
+      `;
+
+      if (p.estado === 'transito') { transitList.appendChild(card); inTransit++; }
+      else { doneList.appendChild(card); isDone++; }
+    });
+
+    document.getElementById('countTransit').innerText = inTransit;
+    document.getElementById('countDone').innerText = isDone;
+
+    if (inTransit === 0) transitList.innerHTML = "<p style='color:#64748b; text-align:center;'>No llevas mercancía en tránsito actualmente.</p>";
+    if (isDone === 0) doneList.innerHTML = "<p style='color:#64748b; text-align:center;'>Aún no hay portes finalizados.</p>";
+  }
+
+  function abrirFirmaDestino(index) {
+    porteEnEdicionIndex = index;
+    const p = portes[index];
+    document.getElementById('destRefDisplay').innerText = p.ref;
+    
+    document.getElementById('destFirmaNombre').value = p.destNombre || "";
+    document.getElementById('destFirmaApellidos').value = p.destApellidos || "";
+    document.getElementById('destFirmaDni').value = p.destDni || "";
+    limpiarCanvas('canvasDestinatario', 'metaDestinatario');
+
+    document.getElementById('secTransito').classList.add('hidden');
+    document.getElementById('secFirmaDestino').classList.remove('hidden');
+
+    setTimeout(() => {
+      initCanvas('canvasDestinatario', 'metaDestinatario');
+    }, 150);
+  }
+
+  function cancelarFirmaDestino() {
+    porteEnEdicionIndex = null;
+    document.getElementById('secFirmaDestino').classList.add('hidden');
+    document.getElementById('secTransito').classList.remove('hidden');
+  }
+
+  async function completarEntregaDestino() {
+    if (porteEnEdicionIndex === null) {
+      alert("Error: No se ha seleccionado ningún porte.");
+      return;
+    }
+
+    const nom = document.getElementById('destFirmaNombre').value.trim();
+    const ape = document.getElementById('destFirmaApellidos').value.trim();
+    const dni = document.getElementById('destFirmaDni').value.trim();
+
+    if (!nom) {
+      alert("Por favor, introduce el nombre de la persona que recibe en destino.");
+      return;
+    }
+
+    try {
+      const p = portes[porteEnEdicionIndex];
+      p.destNombre = nom;
+      p.destApellidos = ape;
+      p.destDni = dni;
+
+      document.getElementById('pNumRef').innerText = p.ref;
+      document.getElementById('pFechaCarga').innerText = p.fecha || '---';
+      document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
+      document.getElementById('pLugarCarga').innerText = p.origen || '---';
+      document.getElementById('pLugarDescarga').innerText = p.destino || '---';
+      document.getElementById('pMercancia').innerText = p.mercancia || '---';
+
+      document.getElementById('pSignDestDatos').innerText = `${nom} ${ape} - DNI: ${dni}`;
+      document.getElementById('pImgDest').src = document.getElementById('canvasDestinatario').toDataURL();
+
+      const nombreArchivo = `${p.ref}.pdf`;
+      const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
+      urlPdfGlobal = publicUrlData.publicUrl;
+
+      const qrContainer = document.getElementById('qrcodePdf');
+      qrContainer.innerHTML = "";
+      new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
+
+      const pdfRenderArea = document.getElementById('pdfRenderArea');
+      pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+      pdfRenderArea.classList.remove('hidden');
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      const elementoPdf = document.getElementById('pdfTemplate');
+      const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+
+      const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+
+      pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+
+      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+
+      if (uploadError) {
+        alert("Error al actualizar la nube: " + uploadError.message);
+        return;
+      }
+
+      p.estado = 'terminado';
+      p.urlPdf = urlPdfGlobal;
+      porteEnEdicionIndex = null;
+
+      guardarMemoria();
+      alert("¡Entrega confirmada y e-CMR actualizado con éxito en la nube!");
+
+      document.getElementById('secFirmaDestino').classList.add('hidden');
+      nuevoFormulario();
+      switchAppTab('terminados');
+
+    } catch (err) {
+      alert("Error al procesar la entrega: " + err.message);
+    }
+  }
+
+  function verQRModalDirecto(url, ref) {
+    urlPdfGlobal = url;
+    const qrBox = document.getElementById('qrInspectBox');
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, { text: url, width: 220, height: 220 });
+    document.getElementById('qrInspectRef').innerText = ref;
+    document.getElementById('modalQR').classList.remove('hidden');
+  }
+
+  function cerrarModalQR() { document.getElementById('modalQR').classList.add('hidden'); }
+
+  function procesarImagenInput(inputId, targetAreaId) {
+    return new Promise((resolve) => {
+      const input = document.getElementById(inputId);
+      const area = document.getElementById(targetAreaId);
+      area.innerHTML = "";
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = document.createElement('img');
+          img.src = e.target.result; img.className = 'pdf-img';
+          area.appendChild(img); resolve();
+        };
+        reader.readAsDataURL(input.files[0]);
+      } else { resolve(); }
+    });
+  }
+</script>
+
+</body>
+</html>
