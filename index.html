@@ -343,12 +343,12 @@
     <div class="signature-container">
       <canvas id="canvasDestinatario"></canvas>
       <div id="metaDestinatario" class="signature-meta"></div>
-      <button class="btn-secondary" onclick="limpiarCanvas('canvasDestinatario', 'metaDestinatario')">Borrar Firma</button>
+      <button class="btn-secondary" type="button" onclick="limpiarCanvas('canvasDestinatario', 'metaDestinatario')">Borrar Firma</button>
     </div>
     
     <div class="grid-2" style="margin-top: 12px;">
-      <button id="btnCompletarEntrega" class="btn-action" style="background: #059669;" onclick="completarEntregaDestino()">Confirmar Entrega y Finalizar</button>
-      <button class="btn-action" style="background: #64748b;" onclick="cancelarFirmaDestino()">Volver</button>
+      <button id="btnCompletarEntrega" class="btn-action" style="background: #059669;" type="button" onclick="completarEntregaDestino()">Confirmar Entrega y Finalizar</button>
+      <button class="btn-action" style="background: #64748b;" type="button" onclick="cancelarFirmaDestino()">Volver</button>
     </div>
   </div>
 </div>
@@ -454,8 +454,8 @@
   let portes = [];
   let cargadoresGuardados = [];
   let porteEnEdicionIndex = null;
+  let canvasEstadoFirma = {};
 
-  // Carga inicial y comprobación de recordar credenciales
   window.addEventListener('DOMContentLoaded', () => {
     const savedEmail = localStorage.getItem('decamrs_saved_email');
     const savedPass = localStorage.getItem('decamrs_saved_pass');
@@ -707,29 +707,56 @@
   function initCanvas(canvasId, metaId) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    canvas.width = canvas.offsetWidth || 350;
+    
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = canvas.offsetWidth || rect.width || 350;
     canvas.height = 130;
     
     const ctx = canvas.getContext('2d');
     ctx.lineWidth = 2; ctx.strokeStyle = "#1e3a8a";
-    let dibujando = false, firmado = false;
+    let dibujando = false;
+    canvasEstadoFirma[canvasId] = false;
 
     function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
+      const r = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
+      return { x: clientX - r.left, y: clientY - r.top };
     }
 
-    function empezar(e) { dibujando = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
-    function mover(e) { if (!dibujando) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+    function empezar(e) { 
+      dibujando = true; 
+      canvasEstadoFirma[canvasId] = true;
+      const pos = getPos(e); 
+      ctx.beginPath(); 
+      ctx.moveTo(pos.x, pos.y); 
+    }
+    
+    function mover(e) { 
+      if (!dibujando) return; 
+      e.preventDefault(); 
+      const pos = getPos(e); 
+      ctx.lineTo(pos.x, pos.y); 
+      ctx.stroke(); 
+    }
+    
     function parar() {
-      if (dibujando && !firmado) { firmado = true; capturarUbicacionYHora(metaId, ctx, canvas); }
+      if (dibujando) {
+        capturarUbicacionYHora(metaId, ctx, canvas);
+      }
       dibujando = false;
     }
 
-    canvas.addEventListener('mousedown', empezar); canvas.addEventListener('mousemove', mover); canvas.addEventListener('mouseup', parar);
-    canvas.addEventListener('touchstart', empezar); canvas.addEventListener('touchmove', mover); canvas.addEventListener('touchend', parar);
+    // Limpiar manejadores antiguos
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+
+    newCanvas.addEventListener('mousedown', empezar); 
+    newCanvas.addEventListener('mousemove', mover); 
+    newCanvas.addEventListener('mouseup', parar);
+    newCanvas.addEventListener('touchstart', empezar, { passive: false }); 
+    newCanvas.addEventListener('touchmove', mover, { passive: false }); 
+    newCanvas.addEventListener('touchend', parar);
   }
 
   function capturarUbicacionYHora(metaId, ctx, canvas) {
@@ -756,6 +783,7 @@
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     document.getElementById(metaId).innerText = "";
+    canvasEstadoFirma[canvasId] = false;
   }
 
   function getVal(id) {
@@ -767,103 +795,108 @@
     const btn = document.getElementById('btnGenerarMain');
     btn.disabled = true; btn.innerText = "Procesando y Subiendo a la Nube...";
 
-    const ref = document.getElementById('numReferencia').value;
-    const nombreArchivo = `${ref}.pdf`;
-    const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
-    urlPdfGlobal = publicUrlData.publicUrl;
+    try {
+      const ref = document.getElementById('numReferencia').value;
+      const nombreArchivo = `${ref}.pdf`;
+      const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
+      urlPdfGlobal = publicUrlData.publicUrl;
 
-    guardarCargadorSiEsNuevo(getVal('cargadorNombre'), getVal('cargadorCif'), getVal('cargadorDireccion'));
+      guardarCargadorSiEsNuevo(getVal('cargadorNombre'), getVal('cargadorCif'), getVal('cargadorDireccion'));
 
-    const pCargadorNombre = getVal('cargadorNombre');
-    const pCargadorCif = getVal('cargadorCif');
-    const pCargadorDir = getVal('cargadorDireccion');
-    const pLugarCarga = getVal('lugarCarga');
-    const pLugarDescarga = getVal('lugarDescarga');
-    const pTranspNombre = getVal('transpNombre');
-    const pTranspCif = getVal('transpCif');
-    const pTranspDir = getVal('transpDireccion');
-    const pTranspMat = getVal('transpMatricula');
-    const pTranspRem = getVal('transpRemolque');
-    const pMercancia = getVal('mercancia');
-    const pPrecioPorte = getVal('precioPorte');
-    const pObservaciones = getVal('observaciones');
-    const pFecha = getVal('fechaCarga');
+      const pCargadorNombre = getVal('cargadorNombre');
+      const pCargadorCif = getVal('cargadorCif');
+      const pCargadorDir = getVal('cargadorDireccion');
+      const pLugarCarga = getVal('lugarCarga');
+      const pLugarDescarga = getVal('lugarDescarga');
+      const pTranspNombre = getVal('transpNombre');
+      const pTranspCif = getVal('transpCif');
+      const pTranspDir = getVal('transpDireccion');
+      const pTranspMat = getVal('transpMatricula');
+      const pTranspRem = getVal('transpRemolque');
+      const pMercancia = getVal('mercancia');
+      const pPrecioPorte = getVal('precioPorte');
+      const pObservaciones = getVal('observaciones');
+      const pFecha = getVal('fechaCarga');
 
-    const cargadorDatosSign = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
-    const transpDatosSign = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
+      const cargadorDatosSign = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
+      const transpDatosSign = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
 
-    const canvasCarg = document.getElementById('canvasCargador');
-    const canvasTransp = document.getElementById('canvasTransportista');
-    const imgCargadorData = (canvasCarg && document.getElementById('metaCargador').innerText !== "") ? canvasCarg.toDataURL() : null;
-    const imgTranspData = (canvasTransp && document.getElementById('metaTransportista').innerText !== "") ? canvasTransp.toDataURL() : null;
+      const canvasCarg = document.getElementById('canvasCargador');
+      const canvasTransp = document.getElementById('canvasTransportista');
+      const imgCargadorData = (canvasCarg && canvasEstadoFirma['canvasCargador']) ? canvasCarg.toDataURL() : null;
+      const imgTranspData = (canvasTransp && canvasEstadoFirma['canvasTransportista']) ? canvasTransp.toDataURL() : null;
 
-    document.getElementById('pNumRef').innerText = ref;
-    document.getElementById('pFechaCarga').innerText = pFecha;
-    document.getElementById('pCargadorNombre').innerText = pCargadorNombre;
-    document.getElementById('pCargadorCif').innerText = pCargadorCif;
-    document.getElementById('pCargadorDir').innerText = pCargadorDir;
-    document.getElementById('pLugarCarga').innerText = pLugarCarga;
-    document.getElementById('pLugarDescarga').innerText = pLugarDescarga;
-    document.getElementById('pTranspNombre').innerText = pTranspNombre;
-    document.getElementById('pTranspCif').innerText = pTranspCif;
-    document.getElementById('pTranspDir').innerText = pTranspDir;
-    document.getElementById('pTranspMat').innerText = pTranspMat;
-    document.getElementById('pTranspRem').innerText = pTranspRem;
-    document.getElementById('pMercancia').innerText = pMercancia;
-    document.getElementById('pPrecioPorte').innerText = (pPrecioPorte !== "---") ? pPrecioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
-    document.getElementById('pObservaciones').innerText = pObservaciones;
+      document.getElementById('pNumRef').innerText = ref;
+      document.getElementById('pFechaCarga').innerText = pFecha;
+      document.getElementById('pCargadorNombre').innerText = pCargadorNombre;
+      document.getElementById('pCargadorCif').innerText = pCargadorCif;
+      document.getElementById('pCargadorDir').innerText = pCargadorDir;
+      document.getElementById('pLugarCarga').innerText = pLugarCarga;
+      document.getElementById('pLugarDescarga').innerText = pLugarDescarga;
+      document.getElementById('pTranspNombre').innerText = pTranspNombre;
+      document.getElementById('pTranspCif').innerText = pTranspCif;
+      document.getElementById('pTranspDir').innerText = pTranspDir;
+      document.getElementById('pTranspMat').innerText = pTranspMat;
+      document.getElementById('pTranspRem').innerText = pTranspRem;
+      document.getElementById('pMercancia').innerText = pMercancia;
+      document.getElementById('pPrecioPorte').innerText = (pPrecioPorte !== "---") ? pPrecioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
+      document.getElementById('pObservaciones').innerText = pObservaciones;
 
-    document.getElementById('pSignCargadorDatos').innerText = cargadorDatosSign;
-    document.getElementById('pSignTranspDatos').innerText = transpDatosSign;
-    document.getElementById('pSignDestDatos').innerText = "(Pendiente de firma en destino)";
+      document.getElementById('pSignCargadorDatos').innerText = cargadorDatosSign;
+      document.getElementById('pSignTranspDatos').innerText = transpDatosSign;
+      document.getElementById('pSignDestDatos').innerText = "(Pendiente de firma en destino)";
 
-    const imgCargEl = document.getElementById('pImgCargador');
-    if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
+      const imgCargEl = document.getElementById('pImgCargador');
+      if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
 
-    const imgTranspEl = document.getElementById('pImgTransp');
-    if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      const imgTranspEl = document.getElementById('pImgTransp');
+      if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
 
-    document.getElementById('pImgDest').style.display = "none";
+      document.getElementById('pImgDest').style.display = "none";
 
-    const qrContainer = document.getElementById('qrcodePdf');
-    qrContainer.innerHTML = "";
-    new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
+      const qrContainer = document.getElementById('qrcodePdf');
+      qrContainer.innerHTML = "";
+      new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
 
-    await procesarImagenInput('fotoMercancia', 'pFotoMercanciaArea');
-    await procesarImagenInput('fotoObservaciones', 'pFotoObservacionesArea');
+      await procesarImagenInput('fotoMercancia', 'pFotoMercanciaArea');
+      await procesarImagenInput('fotoObservaciones', 'pFotoObservacionesArea');
 
-    const pdfRenderArea = document.getElementById('pdfRenderArea');
-    pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
-    pdfRenderArea.classList.remove('hidden');
+      const pdfRenderArea = document.getElementById('pdfRenderArea');
+      pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+      pdfRenderArea.classList.remove('hidden');
 
-    await new Promise(resolve => setTimeout(resolve, 350));
+      await new Promise(resolve => setTimeout(resolve, 350));
 
-    const elementoPdf = document.getElementById('pdfTemplate');
-    const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+      const elementoPdf = document.getElementById('pdfTemplate');
+      const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
 
-    const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+      const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
 
-    pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+      pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
 
-    const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
 
-    if (uploadError) {
-      alert("Error al subir el documento: " + uploadError.message);
-      btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube"; return;
+      if (uploadError) {
+        alert("Error al subir el documento: " + uploadError.message);
+        btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube"; return;
+      }
+
+      portes.push({
+        ref, fecha: pFecha, cargador: pCargadorNombre, cargadorCif: pCargadorCif, cargadorDir: pCargadorDir,
+        origen: pLugarCarga, destino: pLugarDescarga, transpNombre: pTranspNombre, transpCif: pTranspCif,
+        transpDir: pTranspDir, transpMat: pTranspMat, transpRem: pTranspRem, mercancia: pMercancia,
+        precioPorte: pPrecioPorte, observaciones: pObservaciones, cargadorDatosSign, transpDatosSign,
+        imgCargadorData, imgTranspData, urlPdf: urlPdfGlobal, estado: 'transito'
+      });
+
+      guardarMemoria();
+      btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube";
+      alert("¡Documento procesado y subido correctamente a la nube!");
+      nuevoFormulario(); switchAppTab('transito');
+    } catch (err) {
+      alert("Error inesperado: " + err.message);
+      btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube";
     }
-
-    portes.push({
-      ref, fecha: pFecha, cargador: pCargadorNombre, cargadorCif: pCargadorCif, cargadorDir: pCargadorDir,
-      origen: pLugarCarga, destino: pLugarDescarga, transpNombre: pTranspNombre, transpCif: pTranspCif,
-      transpDir: pTranspDir, transpMat: pTranspMat, transpRem: pTranspRem, mercancia: pMercancia,
-      precioPorte: pPrecioPorte, observaciones: pObservaciones, cargadorDatosSign, transpDatosSign,
-      imgCargadorData, imgTranspData, urlPdf: urlPdfGlobal, estado: 'transito'
-    });
-
-    guardarMemoria();
-    btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube";
-    alert("¡Documento procesado y subido correctamente a la nube!");
-    nuevoFormulario(); switchAppTab('transito');
   }
 
   function renderizarListas() {
@@ -887,9 +920,9 @@
           <b>Mercancía:</b> ${p.mercancia} ${p.precioPorte && p.precioPorte !== '---' ? `| <b>Precio:</b> \${p.precioPorte}` : ''}
         </div>
         <div class="card-actions">
-          <button class="btn-sm" style="background:#15803d; color:white;" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
+          <button class="btn-sm" style="background:#15803d; color:white;" type="button" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
           <a href="${p.urlPdf}" target="_blank" class="btn-sm" style="background:#0369a1; color:white; text-decoration:none;">Ver PDF</a>
-          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" onclick="abrirFirmaDestino(\${index})">Firmar Entrega</button>` : ''}
+          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" type="button" onclick="abrirFirmaDestino(\${index})">Firmar Entrega</button>` : ''}
         </div>
       `;
 
@@ -917,14 +950,15 @@
     document.getElementById('destFirmaNombre').value = p.destNombre || "";
     document.getElementById('destFirmaApellidos').value = p.destApellidos || "";
     document.getElementById('destFirmaDni').value = p.destDni || "";
-    limpiarCanvas('canvasDestinatario', 'metaDestinatario');
 
     document.getElementById('secTransito').classList.add('hidden');
     document.getElementById('secFirmaDestino').classList.remove('hidden');
 
+    // Inicializar canvas tras hacer visible la sección
     setTimeout(() => {
       initCanvas('canvasDestinatario', 'metaDestinatario');
-    }, 200);
+      limpiarCanvas('canvasDestinatario', 'metaDestinatario');
+    }, 150);
   }
 
   function cancelarFirmaDestino() {
@@ -972,7 +1006,7 @@
 
       document.getElementById('pSignCargadorDatos').innerText = p.cargadorDatosSign || '---';
       document.getElementById('pSignTranspDatos').innerText = p.transpDatosSign || '---';
-      document.getElementById('pSignDestDatos').innerText = nom ? `${nom} ${ape} - DNI: ${dni}` : "Recibido en destino (Sin firma electrónica)";
+      document.getElementById('pSignDestDatos').innerText = nom ? `${nom} ${ape} - DNI: ${dni}` : "Recibido en destino (Conforme)";
 
       const imgCargEl = document.getElementById('pImgCargador');
       if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
@@ -982,7 +1016,7 @@
 
       const canvasDest = document.getElementById('canvasDestinatario');
       const imgDestEl = document.getElementById('pImgDest');
-      if (canvasDest && document.getElementById('metaDestinatario').innerText !== "") {
+      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
         imgDestEl.src = canvasDest.toDataURL();
         imgDestEl.style.display = "block";
       } else {
@@ -1048,7 +1082,7 @@
       switchAppTab('terminados');
 
     } catch (err) {
-      alert("Error inesperado en el proceso: " + err.message);
+      alert("Error al completar entrega: " + err.message);
       btn.disabled = false;
       btn.innerText = "Confirmar Entrega y Finalizar";
     }
