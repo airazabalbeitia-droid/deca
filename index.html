@@ -331,7 +331,7 @@
   </div>
 
   <!-- SECCIÓN FIRMA DESTINO (DESCARGA) -->
-  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f6ff;">
+  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f4ff;">
     <div class="section-title" style="color: #1d4ed8;">Firma de Recepción en Destino</div>
     <p style="font-size: 0.85rem; color: #475569;">Ref: <b id="destRefDisplay">---</b> | Entrega de mercancía.</p>
 
@@ -1065,4 +1065,80 @@
       setTxt('pTranspMat', p.transpMat || '---');
       setTxt('pTranspRem', p.transpRem || '---');
       setTxt('pMercancia', p.mercancia || '---');
-      setTxt
+      setTxt('pPrecioPorte', (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo");
+      setTxt('pObservaciones', p.observaciones || '---');
+      setTxt('pSignCargadorDatos', p.cargadorDatosSign || '---');
+      setTxt('pSignTranspDatos', p.transpDatosSign || '---');
+      setTxt('pSignDestDatos', p.destNombre ? `${p.destNombre} ${p.destApellidos || ''} - DNI: ${p.destDni || '---'}` : "Entregado en destino");
+
+      const imgCargEl = document.getElementById('pImgCargador');
+      if (imgCargEl) imgCargEl.style.display = p.imgCargadorData ? (imgCargEl.src = p.imgCargadorData, "block") : "none";
+
+      const imgTranspEl = document.getElementById('pImgTransportista');
+      if (imgTranspEl) imgTranspEl.style.display = p.imgTranspData ? (imgTranspEl.src = p.imgTranspData, "block") : "none";
+
+      const imgDestEl = document.getElementById('pImgDest');
+      if (imgDestEl) imgDestEl.style.display = p.imgDestinoData ? (imgDestEl.src = p.imgDestinoData, "block") : "none";
+
+      const nombreArchivo = `${p.ref}.pdf`;
+      const qrContainer = document.getElementById('qrcodePdf');
+      if (qrContainer) {
+        qrContainer.innerHTML = "";
+        new QRCode(qrContainer, { text: p.urlPdf, width: 80, height: 80 });
+      }
+
+      const pdfRenderArea = document.getElementById('pdfRenderArea');
+      if (pdfRenderArea) {
+        pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+        pdfRenderArea.classList.remove('hidden');
+
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        const elementoPdf = document.getElementById('pdfTemplate');
+        const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+
+        const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+
+        pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+
+        await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      }
+    } catch (e) {
+      console.warn("Error generando PDF en segundo plano:", e);
+    }
+  }
+
+  function verQRModalDirecto(url, ref) {
+    urlPdfGlobal = url;
+    const qrBox = document.getElementById('qrInspectBox');
+    if (qrBox) {
+      qrBox.innerHTML = "";
+      new QRCode(qrBox, { text: url, width: 220, height: 220 });
+    }
+    document.getElementById('qrInspectRef').innerText = ref;
+    document.getElementById('modalQR').classList.remove('hidden');
+  }
+
+  function cerrarModalQR() { document.getElementById('modalQR').classList.add('hidden'); }
+
+  function procesarImagenInput(inputId, targetAreaId) {
+    return new Promise((resolve) => {
+      const input = document.getElementById(inputId);
+      const area = document.getElementById(targetAreaId);
+      if (!area) return resolve();
+      area.innerHTML = "";
+      if (input && input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = document.createElement('img');
+          img.src = e.target.result; img.className = 'pdf-img';
+          area.appendChild(img); resolve();
+        };
+        reader.readAsDataURL(input.files[0]);
+      } else { resolve(); }
+    });
+  }
+</script>
+
+</body>
+</html>
