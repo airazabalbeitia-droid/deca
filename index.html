@@ -106,7 +106,7 @@
       <input type="checkbox" id="rememberCredentials"> Recordar usuario y contraseña
     </label>
 
-    <button id="btnLoginSubmit" type="submit" class="btn-action">Entrar a la Plataforma</button>
+    <button type="submit" class="btn-action">Entrar a la Plataforma</button>
   </form>
 
   <form id="formRegister" class="hidden" onsubmit="handleRegister(event)">
@@ -434,7 +434,7 @@
         </div>
         <div>
           <b>Transportista:</b> <span id="pSignTranspDatos"></span><br>
-          <img id="pImgTransportista" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px; display: none;">
+          <img id="pImgTransp" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px; display: none;">
         </div>
       </div>
       <div style="margin-top: 8px;">
@@ -444,6 +444,7 @@
     </div>
   </div>
 </div>
+
 <script>
   const SUPABASE_URL = "https://pfjqfxnpafodtvfrpgga.supabase.co";
   const SUPABASE_KEY = "sb_publishable_qTNMD8uWnMdNeHt1JKiudg_Pyq7I2Bp";
@@ -456,19 +457,12 @@
   let canvasEstadoFirma = {};
 
   window.addEventListener('DOMContentLoaded', () => {
-    try {
-      const savedEmail = localStorage.getItem('decamrs_saved_email');
-      const savedPass = localStorage.getItem('decamrs_saved_pass');
-      if (savedEmail && savedPass) {
-        const elEmail = document.getElementById('loginEmail');
-        const elPass = document.getElementById('loginPassword');
-        const elRem = document.getElementById('rememberCredentials');
-        if (elEmail) elEmail.value = savedEmail;
-        if (elPass) elPass.value = savedPass;
-        if (elRem) elRem.checked = true;
-      }
-    } catch (e) {
-      console.warn("Error leyendo localStorage:", e);
+    const savedEmail = localStorage.getItem('decamrs_saved_email');
+    const savedPass = localStorage.getItem('decamrs_saved_pass');
+    if (savedEmail && savedPass) {
+      document.getElementById('loginEmail').value = savedEmail;
+      document.getElementById('loginPassword').value = savedPass;
+      document.getElementById('rememberCredentials').checked = true;
     }
   });
 
@@ -534,8 +528,7 @@
     if (!container) return;
     container.innerHTML = "";
 
-    const elCount = document.getElementById('countClientes');
-    if (elCount) elCount.innerText = cargadoresGuardados.length;
+    document.getElementById('countClientes').innerText = cargadoresGuardados.length;
 
     if (cargadoresGuardados.length === 0) {
       container.innerHTML = "<p style='color:#64748b; text-align:center;'>No hay clientes registrados en el directorio.</p>";
@@ -651,21 +644,16 @@
     e.preventDefault();
     const email = document.getElementById('regEmail').value;
     const password = document.getElementById('regPassword').value;
-    try {
-      const { data, error } = await supabaseClient.auth.signUp({
-        email, password,
-        options: { data: { nombre_empresa: document.getElementById('regNombre').value, cif: document.getElementById('regCif').value, direccion: document.getElementById('regDireccion').value } }
-      });
-      if (error) { alert("Error: " + error.message); }
-      else { cargarAppUsuario(data.user); }
-    } catch (err) { alert("Error de registro: " + err.message); }
+    const { data, error } = await supabaseClient.auth.signUp({
+      email, password,
+      options: { data: { nombre_empresa: document.getElementById('regNombre').value, cif: document.getElementById('regCif').value, direccion: document.getElementById('regDireccion').value } }
+    });
+    if (error) { alert("Error: " + error.message); }
+    else { cargarAppUsuario(data.user); }
   }
 
   async function handleLogin(e) {
     e.preventDefault();
-    const btn = document.getElementById('btnLoginSubmit');
-    if (btn) btn.disabled = true;
-
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     const remember = document.getElementById('rememberCredentials').checked;
@@ -678,24 +666,13 @@
       localStorage.removeItem('decamrs_saved_pass');
     }
 
-    try {
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) { 
-        alert("Error al iniciar sesión: " + error.message); 
-      } else if (data && data.user) { 
-        cargarAppUsuario(data.user); 
-      } else {
-        alert("No se obtuvieron datos de usuario.");
-      }
-    } catch (err) {
-      alert("Error en el inicio de sesión: " + err.message);
-    } finally {
-      if (btn) btn.disabled = false;
-    }
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { alert("Error al iniciar sesión: " + error.message); }
+    else { cargarAppUsuario(data.user); }
   }
 
   async function handleLogout() {
-    try { await supabaseClient.auth.signOut(); } catch(e) {}
+    await supabaseClient.auth.signOut();
     document.getElementById('viewApp').classList.add('hidden');
     document.getElementById('viewAuth').classList.remove('hidden');
   }
@@ -704,27 +681,21 @@
     document.getElementById('viewAuth').classList.add('hidden');
     document.getElementById('viewApp').classList.remove('hidden');
 
-    const meta = (user && user.user_metadata) ? user.user_metadata : {};
-    const elNombre = document.getElementById('transpNombre');
-    const elCif = document.getElementById('transpCif');
-    const elDir = document.getElementById('transpDireccion');
-    
-    if (elNombre) elNombre.value = meta.nombre_empresa || '';
-    if (elCif) elCif.value = meta.cif || '';
-    if (elDir) elDir.value = meta.direccion || '';
+    const meta = user.user_metadata || {};
+    document.getElementById('transpNombre').value = meta.nombre_empresa || '';
+    document.getElementById('transpCif').value = meta.cif || '';
+    document.getElementById('transpDireccion').value = meta.direccion || '';
 
     cargarMemoria();
     nuevoFormulario();
   }
 
   async function nuevoFormulario() {
-    const elFecha = document.getElementById("fechaCarga");
-    const elRef = document.getElementById("numReferencia");
-    if (elFecha) elFecha.value = new Date().toISOString().split('T')[0];
-    if (elRef) elRef.value = "Calculando...";
+    document.getElementById("fechaCarga").value = new Date().toISOString().split('T')[0];
+    document.getElementById("numReferencia").value = "Calculando...";
     
     const nuevaRef = await obtenerSiguienteReferencia();
-    if (elRef) elRef.value = nuevaRef;
+    document.getElementById("numReferencia").value = nuevaRef;
 
     setTimeout(() => {
       initCanvas('canvasCargador', 'metaCargador');
@@ -797,8 +768,7 @@
   }
 
   function aplicarSello(metaId, ctx, canvas, texto) {
-    const elMeta = document.getElementById(metaId);
-    if (elMeta) elMeta.innerText = texto;
+    document.getElementById(metaId).innerText = texto;
     ctx.font = "10px sans-serif"; ctx.fillStyle = "#047857";
     ctx.fillText(texto, 6, canvas.height - 8);
   }
@@ -808,8 +778,7 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const elMeta = document.getElementById(metaId);
-    if (elMeta) elMeta.innerText = "";
+    document.getElementById(metaId).innerText = "";
     canvasEstadoFirma[canvasId] = false;
   }
 
@@ -880,10 +849,8 @@
       const imgCargEl = document.getElementById('pImgCargador');
       if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
 
-      const imgTranspEl = document.getElementById('pImgTransportista');
-      if (imgTranspEl) {
-        if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
-      }
+      const imgTranspEl = document.getElementById('pImgTransp');
+      if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
 
       document.getElementById('pImgDest').style.display = "none";
 
@@ -935,9 +902,8 @@
   function renderizarListas() {
     const transitList = document.getElementById('listTransit');
     const doneList = document.getElementById('listDone');
-    if (!transitList || !doneList) return;
-
     transitList.innerHTML = ""; doneList.innerHTML = "";
+
     let inTransit = 0, isDone = 0;
 
     portes.forEach((p, index) => {
@@ -957,4 +923,175 @@
         <div class="card-actions">
           <button class="btn-sm" style="background:#15803d; color:white;" type="button" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
           <a href="${p.urlPdf}" target="_blank" class="btn-sm" style="background:#0369a1; color:white; text-decoration:none;">Ver PDF</a>
-          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#25
+          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" type="button" onclick="abrirFirmaDestino(\${index})">Firmar Entrega</button>` : ''}
+        </div>
+      `;
+
+      if (p.estado === 'transito') { transitList.appendChild(card); inTransit++; }
+      else { doneList.appendChild(card); isDone++; }
+    });
+
+    document.getElementById('countTransit').innerText = inTransit;
+    document.getElementById('countDone').innerText = isDone;
+
+    if (inTransit === 0) transitList.innerHTML = "<p style='color:#64748b; text-align:center;'>No llevas mercancía en tránsito actualmente.</p>";
+    if (isDone === 0) doneList.innerHTML = "<p style='color:#64748b; text-align:center;'>Aún no hay portes finalizados.</p>";
+  }
+
+  function abrirFirmaDestino(index) {
+    if (index === undefined || index === null || !portes[index]) {
+      alert("Error: No se pudo localizar el porte seleccionado.");
+      return;
+    }
+
+    porteEnEdicionIndex = index;
+    const p = portes[index];
+    document.getElementById('destRefDisplay').innerText = p.ref;
+
+    document.getElementById('destFirmaNombre').value = p.destNombre || "";
+    document.getElementById('destFirmaApellidos').value = p.destApellidos || "";
+    document.getElementById('destFirmaDni').value = p.destDni || "";
+
+    document.getElementById('secTransito').classList.add('hidden');
+    document.getElementById('secFirmaDestino').classList.remove('hidden');
+
+    setTimeout(() => {
+      initCanvas('canvasDestinatario', 'metaDestinatario');
+      limpiarCanvas('canvasDestinatario', 'metaDestinatario');
+    }, 150);
+  }
+
+  function cancelarFirmaDestino() {
+    porteEnEdicionIndex = null;
+    document.getElementById('secFirmaDestino').classList.add('hidden');
+    document.getElementById('secTransito').classList.remove('hidden');
+  }
+
+  function completarEntregaDestino() {
+    if (porteEnEdicionIndex === null || porteEnEdicionIndex === undefined) {
+      alert("Error: No hay ningún porte seleccionado para entregar.");
+      return;
+    }
+
+    const nom = document.getElementById('destFirmaNombre').value.trim();
+    const ape = document.getElementById('destFirmaApellidos').value.trim();
+    const dni = document.getElementById('destFirmaDni').value.trim();
+
+    const p = portes[porteEnEdicionIndex];
+
+    // 1. Actualización inmediata del estado en la app
+    p.destNombre = nom;
+    p.destApellidos = ape;
+    p.destDni = dni;
+    p.estado = 'terminado';
+
+    let imgDestinoData = null;
+    try {
+      const canvasDest = document.getElementById('canvasDestinatario');
+      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
+        imgDestinoData = canvasDest.toDataURL();
+      }
+    } catch (e) { console.warn("Error leyendo canvas de destino:", e); }
+
+    p.imgDestinoData = imgDestinoData;
+    porteEnEdicionIndex = null;
+
+    guardarMemoria();
+    alert("¡Entrega confirmada y registrada correctamente!");
+
+    document.getElementById('secFirmaDestino').classList.add('hidden');
+    switchAppTab('terminados');
+
+    // 2. Generar y actualizar PDF en la nube en segundo plano
+    actualizarPdfEnNubeSegundoPlano(p);
+  }
+
+  async function actualizarPdfEnNubeSegundoPlano(p) {
+    try {
+      document.getElementById('pNumRef').innerText = p.ref;
+      document.getElementById('pFechaCarga').innerText = p.fecha || '---';
+      document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
+      document.getElementById('pCargadorCif').innerText = p.cargadorCif || '---';
+      document.getElementById('pCargadorDir').innerText = p.cargadorDir || '---';
+      document.getElementById('pLugarCarga').innerText = p.origen || '---';
+      document.getElementById('pLugarDescarga').innerText = p.destino || '---';
+      document.getElementById('pTranspNombre').innerText = p.transpNombre || '---';
+      document.getElementById('pTranspCif').innerText = p.transpCif || '---';
+      document.getElementById('pTranspDir').innerText = p.transpDir || '---';
+      document.getElementById('pTranspMat').innerText = p.transpMat || '---';
+      document.getElementById('pTranspRem').innerText = p.transpRem || '---';
+      document.getElementById('pMercancia').innerText = p.mercancia || '---';
+      document.getElementById('pPrecioPorte').innerText = (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
+      document.getElementById('pObservaciones').innerText = p.observaciones || '---';
+
+      document.getElementById('pSignCargadorDatos').innerText = p.cargadorDatosSign || '---';
+      document.getElementById('pSignTranspDatos').innerText = p.transpDatosSign || '---';
+      document.getElementById('pSignDestDatos').innerText = p.destNombre ? `${p.destNombre} ${p.destApellidos || ''} - DNI: ${p.destDni || '---'}` : "Entregado en destino";
+
+      const imgCargEl = document.getElementById('pImgCargador');
+      if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
+
+      const imgTranspEl = document.getElementById('pImgTransp');
+      if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+
+      const imgDestEl = document.getElementById('pImgDest');
+      if (p.imgDestinoData) { imgDestEl.src = p.imgDestinoData; imgDestEl.style.display = "block"; } else { imgDestEl.style.display = "none"; }
+
+      const nombreArchivo = `${p.ref}.pdf`;
+      const qrContainer = document.getElementById('qrcodePdf');
+      qrContainer.innerHTML = "";
+      new QRCode(qrContainer, { text: p.urlPdf, width: 80, height: 80 });
+
+      const pdfRenderArea = document.getElementById('pdfRenderArea');
+      pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+      pdfRenderArea.classList.remove('hidden');
+
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      const elementoPdf = document.getElementById('pdfTemplate');
+      const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+
+      const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+
+      pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+
+      await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+    } catch (e) {
+      console.warn("Error en actualización de PDF en segundo plano:", e);
+    }
+  }
+
+  function verQRModalDirecto(url, ref) {
+    urlPdfGlobal = url;
+    const qrBox = document.getElementById('qrInspectBox');
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, { text: url, width: 220, height: 220 });
+    document.getElementById('qrInspectRef').innerText = ref;
+    document.getElementById('modalQR').classList.remove('hidden');
+  }
+
+  function cerrarModalQR() { document.getElementById('modalQR').classList.add('hidden'); }
+
+  function procesarImagenInput(inputId, targetAreaId) {
+    return new Promise((resolve) => {
+      const input = document.getElementById(inputId);
+      const area = document.getElementById(targetAreaId);
+      area.innerHTML = "";
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = document.createElement('img');
+          img.src = e.target.result; img.className = 'pdf-img';
+          area.appendChild(img); resolve();
+        };
+        reader.readAsDataURL(input.files[0]);
+      } else { resolve(); }
+    });
+  }
+</script>
+
+</body>
+</html>
