@@ -849,8 +849,10 @@
       const imgCargEl = document.getElementById('pImgCargador');
       if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
 
-      const imgTranspEl = document.getElementById('pImgTransp');
-      if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      const imgTranspEl = document.getElementById('pImgTransportista');
+      if (imgTranspEl) {
+        if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      }
 
       document.getElementById('pImgDest').style.display = "none";
 
@@ -979,7 +981,7 @@
 
     const p = portes[porteEnEdicionIndex];
 
-    // 1. Actualización inmediata del estado en la app
+    // 1. Actualización inmediata del estado en la app sin bloquear
     p.destNombre = nom;
     p.destApellidos = ape;
     p.destDni = dni;
@@ -1002,8 +1004,10 @@
     document.getElementById('secFirmaDestino').classList.add('hidden');
     switchAppTab('terminados');
 
-    // 2. Generar y actualizar PDF en la nube en segundo plano
-    actualizarPdfEnNubeSegundoPlano(p);
+    // 2. Procesamiento de PDF diferido en segundo plano
+    setTimeout(() => {
+      actualizarPdfEnNubeSegundoPlano(p);
+    }, 300);
   }
 
   async function actualizarPdfEnNubeSegundoPlano(p) {
@@ -1031,8 +1035,10 @@
       const imgCargEl = document.getElementById('pImgCargador');
       if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
 
-      const imgTranspEl = document.getElementById('pImgTransp');
-      if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      const imgTranspEl = document.getElementById('pImgTransportista');
+      if (imgTranspEl) {
+        if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      }
 
       const imgDestEl = document.getElementById('pImgDest');
       if (p.imgDestinoData) { imgDestEl.src = p.imgDestinoData; imgDestEl.style.display = "block"; } else { imgDestEl.style.display = "none"; }
