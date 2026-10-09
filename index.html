@@ -22,8 +22,8 @@
     .auth-title { color: #1d4ed8; font-size: 2rem; font-weight: 800; margin: 0 0 6px 0; }
     .auth-sub { color: #64748b; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.4; }
     
-    .nav-pills { display: flex; gap: 8px; background: #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 20px; }
-    .btn-pill { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; background: transparent; color: #475569; transition: all 0.2s; }
+    .nav-pills { display: flex; gap: 6px; background: #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .btn-pill { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer; background: transparent; color: #475569; transition: all 0.2s; white-space: nowrap; }
     .btn-pill.active { background: #2563eb; color: white; }
     
     /* FORMULARIO Y SECCIONES */
@@ -40,7 +40,10 @@
     label { font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.88rem; color: #334155; }
     input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
     
-    /* TARJETAS DE PORTES */
+    .remember-me { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #475569; margin-bottom: 14px; cursor: pointer; }
+    .remember-me input { width: auto; cursor: pointer; }
+
+    /* TARJETAS DE PORTES Y CLIENTES */
     .card-porte { background: #ffffff; border: 1px solid #cbd5e1; border-left: 5px solid #2563eb; border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .card-porte.done { border-left-color: #10b981; }
     .card-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 8px; }
@@ -98,6 +101,11 @@
       <label for="loginPassword">Contraseña</label>
       <input type="password" id="loginPassword" required placeholder="******">
     </div>
+    
+    <label class="remember-me">
+      <input type="checkbox" id="rememberCredentials"> Recordar usuario y contraseña
+    </label>
+
     <button type="submit" class="btn-action">Entrar a la Plataforma</button>
   </form>
 
@@ -137,6 +145,7 @@
     <button id="tabNuevoBtn" class="btn-pill active" onclick="switchAppTab('nuevo')">+ Nuevo Porte</button>
     <button id="tabTransitBtn" class="btn-pill" onclick="switchAppTab('transito')">En Tránsito (<span id="countTransit">0</span>)</button>
     <button id="tabDoneBtn" class="btn-pill" onclick="switchAppTab('terminados')">Terminados (<span id="countDone">0</span>)</button>
+    <button id="tabClientesBtn" class="btn-pill" onclick="switchAppTab('clientes')">Clientes (<span id="countClientes">0</span>)</button>
   </div>
 
   <!-- SECCIÓN 1: FORMULARIO NUEVO PORTE -->
@@ -294,6 +303,33 @@
     <div id="listDone"></div>
   </div>
 
+  <!-- SECCIÓN 4: GESTIÓN DE CLIENTES -->
+  <div id="secClientes" class="hidden">
+    <div class="section-box">
+      <div class="section-title">Añadir / Editar Cliente</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label>Nombre / Razón Social:</label>
+          <input type="text" id="cliNombre" placeholder="Ej. Tornillería Deba S.L.">
+        </div>
+        <div class="field-group">
+          <label>CIF / DNI:</label>
+          <input type="text" id="cliCif" placeholder="B20123456">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Dirección Completa:</label>
+        <input type="text" id="cliDireccion" placeholder="Pol. Ind. Deba, Calle B 4, Deba">
+      </div>
+      <button class="btn-action" style="background: #059669;" onclick="guardarClienteManual()">Guardar Cliente</button>
+    </div>
+
+    <div class="section-box">
+      <div class="section-title">Directorio de Clientes Guardados</div>
+      <div id="listClientesDir"></div>
+    </div>
+  </div>
+
   <!-- SECCIÓN FIRMA DESTINO (DESCARGA) -->
   <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f6ff;">
     <div class="section-title" style="color: #1d4ed8;">Firma de Recepción en Destino</div>
@@ -311,7 +347,7 @@
     </div>
     
     <div class="grid-2" style="margin-top: 12px;">
-      <button class="btn-action" style="background: #059669;" onclick="completarEntregaDestino()">Confirmar Entrega y Finalizar</button>
+      <button id="btnCompletarEntrega" class="btn-action" style="background: #059669;" onclick="completarEntregaDestino()">Confirmar Entrega y Finalizar</button>
       <button class="btn-action" style="background: #64748b;" onclick="cancelarFirmaDestino()">Volver</button>
     </div>
   </div>
@@ -419,6 +455,17 @@
   let cargadoresGuardados = [];
   let porteEnEdicionIndex = null;
 
+  // Carga inicial y comprobación de recordar credenciales
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedEmail = localStorage.getItem('decamrs_saved_email');
+    const savedPass = localStorage.getItem('decamrs_saved_pass');
+    if (savedEmail && savedPass) {
+      document.getElementById('loginEmail').value = savedEmail;
+      document.getElementById('loginPassword').value = savedPass;
+      document.getElementById('rememberCredentials').checked = true;
+    }
+  });
+
   function cargarMemoria() {
     const dataPortes = localStorage.getItem('decamrs_portes');
     portes = dataPortes ? JSON.parse(dataPortes) : [];
@@ -427,6 +474,7 @@
     cargadoresGuardados = dataCargadores ? JSON.parse(dataCargadores) : [];
 
     renderizarListas();
+    renderizarClientesDirectorio();
     actualizarDesplegablesCargadores();
   }
 
@@ -434,6 +482,7 @@
     localStorage.setItem('decamrs_portes', JSON.stringify(portes));
     localStorage.setItem('decamrs_cargadores', JSON.stringify(cargadoresGuardados));
     renderizarListas();
+    renderizarClientesDirectorio();
     actualizarDesplegablesCargadores();
   }
 
@@ -448,9 +497,63 @@
     }
   }
 
+  function guardarClienteManual() {
+    const nombre = document.getElementById('cliNombre').value.trim();
+    const cif = document.getElementById('cliCif').value.trim();
+    const direccion = document.getElementById('cliDireccion').value.trim();
+
+    if (!nombre) {
+      alert("Introduce al menos el nombre o razón social del cliente.");
+      return;
+    }
+
+    guardarCargadorSiEsNuevo(nombre, cif, direccion);
+    guardarMemoria();
+
+    document.getElementById('cliNombre').value = "";
+    document.getElementById('cliCif').value = "";
+    document.getElementById('cliDireccion').value = "";
+    alert("Cliente guardado correctamente en la base de datos.");
+  }
+
+  function eliminarCliente(index) {
+    if (confirm("¿Deseas borrar este cliente del directorio?")) {
+      cargadoresGuardados.splice(index, 1);
+      guardarMemoria();
+    }
+  }
+
+  function renderizarClientesDirectorio() {
+    const container = document.getElementById('listClientesDir');
+    if (!container) return;
+    container.innerHTML = "";
+
+    document.getElementById('countClientes').innerText = cargadoresGuardados.length;
+
+    if (cargadoresGuardados.length === 0) {
+      container.innerHTML = "<p style='color:#64748b; text-align:center;'>No hay clientes registrados en el directorio.</p>";
+      return;
+    }
+
+    cargadoresGuardados.forEach((c, idx) => {
+      const item = document.createElement('div');
+      item.style.cssText = "background:#fff; border:1px solid #cbd5e1; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;";
+      item.innerHTML = `
+        <div>
+          <b style="color:#1e3a8a;">${c.nombre}</b> ${c.cif ? `(\${c.cif})` : ''}<br>
+          <small style="color:#64748b;">${c.direccion || 'Sin dirección registrada'}</small>
+        </div>
+        <button class="btn-sm" style="background:#ef4444; color:white;" onclick="eliminarCliente(${idx})">Eliminar</button>
+      `;
+      container.appendChild(item);
+    });
+  }
+
   function actualizarDesplegablesCargadores() {
     const listNombre = document.getElementById('listCargadoresNombre');
     const listCif = document.getElementById('listCargadoresCif');
+    if (!listNombre || !listCif) return;
+
     listNombre.innerHTML = "";
     listCif.innerHTML = "";
 
@@ -521,10 +624,12 @@
     document.getElementById('tabNuevoBtn').classList.toggle('active', tab === 'nuevo');
     document.getElementById('tabTransitBtn').classList.toggle('active', tab === 'transito');
     document.getElementById('tabDoneBtn').classList.toggle('active', tab === 'terminados');
+    document.getElementById('tabClientesBtn').classList.toggle('active', tab === 'clientes');
 
     document.getElementById('secNuevoPorte').classList.toggle('hidden', tab !== 'nuevo');
     document.getElementById('secTransito').classList.toggle('hidden', tab !== 'transito');
     document.getElementById('secTerminados').classList.toggle('hidden', tab !== 'terminados');
+    document.getElementById('secClientes').classList.toggle('hidden', tab !== 'clientes');
     document.getElementById('secFirmaDestino').classList.add('hidden');
   }
 
@@ -549,11 +654,20 @@
 
   async function handleLogin(e) {
     e.preventDefault();
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email: document.getElementById('loginEmail').value,
-      password: document.getElementById('loginPassword').value
-    });
-    if (error) { alert("Error: " + error.message); }
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const remember = document.getElementById('rememberCredentials').checked;
+
+    if (remember) {
+      localStorage.setItem('decamrs_saved_email', email);
+      localStorage.setItem('decamrs_saved_pass', password);
+    } else {
+      localStorage.removeItem('decamrs_saved_email');
+      localStorage.removeItem('decamrs_saved_pass');
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { alert("Error al iniciar sesión: " + error.message); }
     else { cargarAppUsuario(data.user); }
   }
 
@@ -660,7 +774,6 @@
 
     guardarCargadorSiEsNuevo(getVal('cargadorNombre'), getVal('cargadorCif'), getVal('cargadorDireccion'));
 
-    // Captura de datos
     const pCargadorNombre = getVal('cargadorNombre');
     const pCargadorCif = getVal('cargadorCif');
     const pCargadorDir = getVal('cargadorDireccion');
@@ -679,13 +792,11 @@
     const cargadorDatosSign = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
     const transpDatosSign = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
 
-    // Obtener imágenes de firma de origen
     const canvasCarg = document.getElementById('canvasCargador');
     const canvasTransp = document.getElementById('canvasTransportista');
     const imgCargadorData = (canvasCarg && document.getElementById('metaCargador').innerText !== "") ? canvasCarg.toDataURL() : null;
     const imgTranspData = (canvasTransp && document.getElementById('metaTransportista').innerText !== "") ? canvasTransp.toDataURL() : null;
 
-    // Llenar plantilla PDF
     document.getElementById('pNumRef').innerText = ref;
     document.getElementById('pFechaCarga').innerText = pFecha;
     document.getElementById('pCargadorNombre').innerText = pCargadorNombre;
@@ -741,7 +852,6 @@
       btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube"; return;
     }
 
-    // Guardar ficha completa para reconstrucción en destino
     portes.push({
       ref, fecha: pFecha, cargador: pCargadorNombre, cargadorCif: pCargadorCif, cargadorDir: pCargadorDir,
       origen: pLugarCarga, destino: pLugarDescarga, transpNombre: pTranspNombre, transpCif: pTranspCif,
@@ -829,6 +939,10 @@
       return;
     }
 
+    const btn = document.getElementById('btnCompletarEntrega');
+    btn.disabled = true;
+    btn.innerText = "Generando PDF y actualizando...";
+
     const nom = document.getElementById('destFirmaNombre').value.trim();
     const ape = document.getElementById('destFirmaApellidos').value.trim();
     const dni = document.getElementById('destFirmaDni').value.trim();
@@ -840,7 +954,6 @@
       p.destApellidos = ape;
       p.destDni = dni;
 
-      // Reconstruir PDF desde la ficha almacenada
       document.getElementById('pNumRef').innerText = p.ref;
       document.getElementById('pFechaCarga').innerText = p.fecha || '---';
       document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
@@ -891,7 +1004,7 @@
       pdfRenderArea.style.width = "794px";
       pdfRenderArea.classList.remove('hidden');
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 400));
 
       const elementoPdf = document.getElementById('pdfTemplate');
       const opciones = {
@@ -916,6 +1029,8 @@
 
       if (uploadError) {
         alert("Error al guardar en Supabase: " + uploadError.message);
+        btn.disabled = false;
+        btn.innerText = "Confirmar Entrega y Finalizar";
         return;
       }
 
@@ -926,12 +1041,16 @@
       guardarMemoria();
       alert("¡Entrega finalizada con éxito! El documento ha sido actualizado en la nube.");
 
+      btn.disabled = false;
+      btn.innerText = "Confirmar Entrega y Finalizar";
       document.getElementById('secFirmaDestino').classList.add('hidden');
       nuevoFormulario();
       switchAppTab('terminados');
 
     } catch (err) {
       alert("Error inesperado en el proceso: " + err.message);
+      btn.disabled = false;
+      btn.innerText = "Confirmar Entrega y Finalizar";
     }
   }
 
