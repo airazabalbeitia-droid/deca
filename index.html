@@ -750,10 +750,15 @@
   }
 
   function abrirFirmaDestino(index) {
+    if (index === undefined || index === null || !portes[index]) {
+      alert("Error: No se pudo localizar el porte seleccionado.");
+      return;
+    }
+
     porteEnEdicionIndex = index;
     const p = portes[index];
     document.getElementById('destRefDisplay').innerText = p.ref;
-    
+
     document.getElementById('destFirmaNombre').value = p.destNombre || "";
     document.getElementById('destFirmaApellidos').value = p.destApellidos || "";
     document.getElementById('destFirmaDni').value = p.destDni || "";
@@ -764,7 +769,7 @@
 
     setTimeout(() => {
       initCanvas('canvasDestinatario', 'metaDestinatario');
-    }, 150);
+    }, 200);
   }
 
   function cancelarFirmaDestino() {
@@ -774,8 +779,8 @@
   }
 
   async function completarEntregaDestino() {
-    if (porteEnEdicionIndex === null) {
-      alert("Error: No se ha seleccionado ningún porte.");
+    if (porteEnEdicionIndex === null || porteEnEdicionIndex === undefined) {
+      alert("Error: No hay ningún porte seleccionado para entregar.");
       return;
     }
 
@@ -784,12 +789,13 @@
     const dni = document.getElementById('destFirmaDni').value.trim();
 
     if (!nom) {
-      alert("Por favor, introduce el nombre de la persona que recibe en destino.");
+      alert("Por favor, escribe el nombre de la persona que recibe la mercancía.");
       return;
     }
 
     try {
       const p = portes[porteEnEdicionIndex];
+
       p.destNombre = nom;
       p.destApellidos = ape;
       p.destDni = dni;
@@ -802,7 +808,10 @@
       document.getElementById('pMercancia').innerText = p.mercancia || '---';
 
       document.getElementById('pSignDestDatos').innerText = `${nom} ${ape} - DNI: ${dni}`;
-      document.getElementById('pImgDest').src = document.getElementById('canvasDestinatario').toDataURL();
+      const canvasDest = document.getElementById('canvasDestinatario');
+      if (canvasDest) {
+        document.getElementById('pImgDest').src = canvasDest.toDataURL();
+      }
 
       const nombreArchivo = `${p.ref}.pdf`;
       const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
@@ -813,22 +822,37 @@
       new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
 
       const pdfRenderArea = document.getElementById('pdfRenderArea');
-      pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+      pdfRenderArea.style.position = "absolute";
+      pdfRenderArea.style.left = "-9999px";
+      pdfRenderArea.style.top = "0px";
+      pdfRenderArea.style.width = "794px";
       pdfRenderArea.classList.remove('hidden');
 
-      await new Promise(resolve => setTimeout(resolve, 350));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const elementoPdf = document.getElementById('pdfTemplate');
-      const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+      const opciones = {
+        margin: 8,
+        filename: nombreArchivo,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
 
       const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
 
-      pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+      pdfRenderArea.classList.add('hidden');
+      pdfRenderArea.style.position = "";
+      pdfRenderArea.style.left = "";
+      pdfRenderArea.style.width = "";
 
-      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
 
       if (uploadError) {
-        alert("Error al actualizar la nube: " + uploadError.message);
+        alert("Error al guardar en Supabase: " + uploadError.message);
         return;
       }
 
@@ -837,14 +861,14 @@
       porteEnEdicionIndex = null;
 
       guardarMemoria();
-      alert("¡Entrega confirmada y e-CMR actualizado con éxito en la nube!");
+      alert("¡Entrega finalizada con éxito! El documento ha sido actualizado en la nube.");
 
       document.getElementById('secFirmaDestino').classList.add('hidden');
       nuevoFormulario();
       switchAppTab('terminados');
 
     } catch (err) {
-      alert("Error al procesar la entrega: " + err.message);
+      alert("Error inesperado en el proceso: " + err.message);
     }
   }
 
