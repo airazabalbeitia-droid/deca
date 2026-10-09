@@ -106,7 +106,7 @@
       <input type="checkbox" id="rememberCredentials"> Recordar usuario y contraseña
     </label>
 
-    <button type="submit" class="btn-action">Entrar a la Plataforma</button>
+    <button id="btnLoginSubmit" type="submit" class="btn-action">Entrar a la Plataforma</button>
   </form>
 
   <form id="formRegister" class="hidden" onsubmit="handleRegister(event)">
@@ -331,7 +331,7 @@
   </div>
 
   <!-- SECCIÓN FIRMA DESTINO (DESCARGA) -->
-  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f6ff;">
+  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f0ff;">
     <div class="section-title" style="color: #1d4ed8;">Firma de Recepción en Destino</div>
     <p style="font-size: 0.85rem; color: #475569;">Ref: <b id="destRefDisplay">---</b> | Entrega de mercancía.</p>
 
@@ -444,7 +444,6 @@
     </div>
   </div>
 </div>
-
 <script>
   const SUPABASE_URL = "https://pfjqfxnpafodtvfrpgga.supabase.co";
   const SUPABASE_KEY = "sb_publishable_qTNMD8uWnMdNeHt1JKiudg_Pyq7I2Bp";
@@ -457,12 +456,19 @@
   let canvasEstadoFirma = {};
 
   window.addEventListener('DOMContentLoaded', () => {
-    const savedEmail = localStorage.getItem('decamrs_saved_email');
-    const savedPass = localStorage.getItem('decamrs_saved_pass');
-    if (savedEmail && savedPass) {
-      document.getElementById('loginEmail').value = savedEmail;
-      document.getElementById('loginPassword').value = savedPass;
-      document.getElementById('rememberCredentials').checked = true;
+    try {
+      const savedEmail = localStorage.getItem('decamrs_saved_email');
+      const savedPass = localStorage.getItem('decamrs_saved_pass');
+      if (savedEmail && savedPass) {
+        const elEmail = document.getElementById('loginEmail');
+        const elPass = document.getElementById('loginPassword');
+        const elRem = document.getElementById('rememberCredentials');
+        if (elEmail) elEmail.value = savedEmail;
+        if (elPass) elPass.value = savedPass;
+        if (elRem) elRem.checked = true;
+      }
+    } catch (e) {
+      console.warn("Error leyendo localStorage:", e);
     }
   });
 
@@ -528,7 +534,8 @@
     if (!container) return;
     container.innerHTML = "";
 
-    document.getElementById('countClientes').innerText = cargadoresGuardados.length;
+    const elCount = document.getElementById('countClientes');
+    if (elCount) elCount.innerText = cargadoresGuardados.length;
 
     if (cargadoresGuardados.length === 0) {
       container.innerHTML = "<p style='color:#64748b; text-align:center;'>No hay clientes registrados en el directorio.</p>";
@@ -644,16 +651,21 @@
     e.preventDefault();
     const email = document.getElementById('regEmail').value;
     const password = document.getElementById('regPassword').value;
-    const { data, error } = await supabaseClient.auth.signUp({
-      email, password,
-      options: { data: { nombre_empresa: document.getElementById('regNombre').value, cif: document.getElementById('regCif').value, direccion: document.getElementById('regDireccion').value } }
-    });
-    if (error) { alert("Error: " + error.message); }
-    else { cargarAppUsuario(data.user); }
+    try {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email, password,
+        options: { data: { nombre_empresa: document.getElementById('regNombre').value, cif: document.getElementById('regCif').value, direccion: document.getElementById('regDireccion').value } }
+      });
+      if (error) { alert("Error: " + error.message); }
+      else { cargarAppUsuario(data.user); }
+    } catch (err) { alert("Error de registro: " + err.message); }
   }
 
   async function handleLogin(e) {
     e.preventDefault();
+    const btn = document.getElementById('btnLoginSubmit');
+    if (btn) btn.disabled = true;
+
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     const remember = document.getElementById('rememberCredentials').checked;
@@ -666,13 +678,24 @@
       localStorage.removeItem('decamrs_saved_pass');
     }
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { alert("Error al iniciar sesión: " + error.message); }
-    else { cargarAppUsuario(data.user); }
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) { 
+        alert("Error al iniciar sesión: " + error.message); 
+      } else if (data && data.user) { 
+        cargarAppUsuario(data.user); 
+      } else {
+        alert("No se obtuvieron datos de usuario.");
+      }
+    } catch (err) {
+      alert("Error en el inicio de sesión: " + err.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function handleLogout() {
-    await supabaseClient.auth.signOut();
+    try { await supabaseClient.auth.signOut(); } catch(e) {}
     document.getElementById('viewApp').classList.add('hidden');
     document.getElementById('viewAuth').classList.remove('hidden');
   }
@@ -681,21 +704,27 @@
     document.getElementById('viewAuth').classList.add('hidden');
     document.getElementById('viewApp').classList.remove('hidden');
 
-    const meta = user.user_metadata || {};
-    document.getElementById('transpNombre').value = meta.nombre_empresa || '';
-    document.getElementById('transpCif').value = meta.cif || '';
-    document.getElementById('transpDireccion').value = meta.direccion || '';
+    const meta = (user && user.user_metadata) ? user.user_metadata : {};
+    const elNombre = document.getElementById('transpNombre');
+    const elCif = document.getElementById('transpCif');
+    const elDir = document.getElementById('transpDireccion');
+    
+    if (elNombre) elNombre.value = meta.nombre_empresa || '';
+    if (elCif) elCif.value = meta.cif || '';
+    if (elDir) elDir.value = meta.direccion || '';
 
     cargarMemoria();
     nuevoFormulario();
   }
 
   async function nuevoFormulario() {
-    document.getElementById("fechaCarga").value = new Date().toISOString().split('T')[0];
-    document.getElementById("numReferencia").value = "Calculando...";
+    const elFecha = document.getElementById("fechaCarga");
+    const elRef = document.getElementById("numReferencia");
+    if (elFecha) elFecha.value = new Date().toISOString().split('T')[0];
+    if (elRef) elRef.value = "Calculando...";
     
     const nuevaRef = await obtenerSiguienteReferencia();
-    document.getElementById("numReferencia").value = nuevaRef;
+    if (elRef) elRef.value = nuevaRef;
 
     setTimeout(() => {
       initCanvas('canvasCargador', 'metaCargador');
@@ -708,8 +737,7 @@
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = canvas.offsetWidth || rect.width || 350;
+    canvas.width = canvas.offsetWidth || 350;
     canvas.height = 130;
     
     const ctx = canvas.getContext('2d');
@@ -747,15 +775,13 @@
       dibujando = false;
     }
 
-    const newCanvas = canvas.cloneNode(true);
-    canvas.parentNode.replaceChild(newCanvas, canvas);
+    canvas.onmousedown = empezar;
+    canvas.onmousemove = mover;
+    canvas.onmouseup = parar;
 
-    newCanvas.addEventListener('mousedown', empezar); 
-    newCanvas.addEventListener('mousemove', mover); 
-    newCanvas.addEventListener('mouseup', parar);
-    newCanvas.addEventListener('touchstart', empezar, { passive: false }); 
-    newCanvas.addEventListener('touchmove', mover, { passive: false }); 
-    newCanvas.addEventListener('touchend', parar);
+    canvas.ontouchstart = (e) => { empezar(e); };
+    canvas.ontouchmove = (e) => { mover(e); };
+    canvas.ontouchend = parar;
   }
 
   function capturarUbicacionYHora(metaId, ctx, canvas) {
@@ -771,7 +797,8 @@
   }
 
   function aplicarSello(metaId, ctx, canvas, texto) {
-    document.getElementById(metaId).innerText = texto;
+    const elMeta = document.getElementById(metaId);
+    if (elMeta) elMeta.innerText = texto;
     ctx.font = "10px sans-serif"; ctx.fillStyle = "#047857";
     ctx.fillText(texto, 6, canvas.height - 8);
   }
@@ -781,7 +808,8 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    document.getElementById(metaId).innerText = "";
+    const elMeta = document.getElementById(metaId);
+    if (elMeta) elMeta.innerText = "";
     canvasEstadoFirma[canvasId] = false;
   }
 
@@ -822,8 +850,12 @@
 
       const canvasCarg = document.getElementById('canvasCargador');
       const canvasTransp = document.getElementById('canvasTransportista');
-      const imgCargadorData = (canvasCarg && canvasEstadoFirma['canvasCargador']) ? canvasCarg.toDataURL() : null;
-      const imgTranspData = (canvasTransp && canvasEstadoFirma['canvasTransportista']) ? canvasTransp.toDataURL() : null;
+      let imgCargadorData = null, imgTranspData = null;
+
+      try {
+        if (canvasCarg && canvasEstadoFirma['canvasCargador']) imgCargadorData = canvasCarg.toDataURL();
+        if (canvasTransp && canvasEstadoFirma['canvasTransportista']) imgTranspData = canvasTransp.toDataURL();
+      } catch(e) { console.warn("Error leyendo canvas de firma:", e); }
 
       document.getElementById('pNumRef').innerText = ref;
       document.getElementById('pFechaCarga').innerText = pFecha;
@@ -849,7 +881,9 @@
       if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
 
       const imgTranspEl = document.getElementById('pImgTransp');
-      if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      if (imgTranspEl) {
+        if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      }
 
       document.getElementById('pImgDest').style.display = "none";
 
@@ -901,8 +935,9 @@
   function renderizarListas() {
     const transitList = document.getElementById('listTransit');
     const doneList = document.getElementById('listDone');
-    transitList.innerHTML = ""; doneList.innerHTML = "";
+    if (!transitList || !doneList) return;
 
+    transitList.innerHTML = ""; doneList.innerHTML = "";
     let inTransit = 0, isDone = 0;
 
     portes.forEach((p, index) => {
@@ -917,6 +952,7 @@
           <b>Cargador:</b> ${p.cargador}<br>
           <b>Origen &rarr; Destino:</b> ${p.origen} &rarr; ${p.destino}<br>
           <b>Mercancía:</b> ${p.mercancia} ${p.precioPorte && p.precioPorte !== '---' ? `| <b>Precio:</b> \${p.precioPorte}` : ''}
+          ${p.destNombre ? `<br><span style="color:#059669; font-weight:600;">Receptor: \${p.destNombre} ${p.destApellidos \vert{}\vert{} ''} (${p.destDni || 'Sin DNI'})</span>` : ''}
         </div>
         <div class="card-actions">
           <button class="btn-sm" style="background:#15803d; color:white;" type="button" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
@@ -929,18 +965,17 @@
       else { doneList.appendChild(card); isDone++; }
     });
 
-    document.getElementById('countTransit').innerText = inTransit;
-    document.getElementById('countDone').innerText = isDone;
+    const elCountT = document.getElementById('countTransit');
+    const elCountD = document.getElementById('countDone');
+    if (elCountT) elCountT.innerText = inTransit;
+    if (elCountD) elCountD.innerText = isDone;
 
     if (inTransit === 0) transitList.innerHTML = "<p style='color:#64748b; text-align:center;'>No llevas mercancía en tránsito actualmente.</p>";
     if (isDone === 0) doneList.innerHTML = "<p style='color:#64748b; text-align:center;'>Aún no hay portes finalizados.</p>";
   }
 
   function abrirFirmaDestino(index) {
-    if (index === undefined || index === null || !portes[index]) {
-      alert("Error: No se pudo localizar el porte seleccionado.");
-      return;
-    }
+    if (index === undefined || index === null || !portes[index]) return;
 
     porteEnEdicionIndex = index;
     const p = portes[index];
@@ -965,132 +1000,111 @@
     document.getElementById('secTransito').classList.remove('hidden');
   }
 
-  async function completarEntregaDestino() {
+  function completarEntregaDestino() {
     if (porteEnEdicionIndex === null || porteEnEdicionIndex === undefined) {
       alert("Error: No hay ningún porte seleccionado para entregar.");
       return;
     }
 
-    const btn = document.getElementById('btnCompletarEntrega');
-    btn.disabled = true;
-    btn.innerText = "Generando PDF y actualizando...";
-
     const nom = document.getElementById('destFirmaNombre').value.trim();
     const ape = document.getElementById('destFirmaApellidos').value.trim();
     const dni = document.getElementById('destFirmaDni').value.trim();
 
+    const p = portes[porteEnEdicionIndex];
+
+    p.destNombre = nom;
+    p.destApellidos = ape;
+    p.destDni = dni;
+    p.estado = 'terminado';
+
+    let imgDestinoData = null;
     try {
-      const p = portes[porteEnEdicionIndex];
+      const canvasDest = document.getElementById('canvasDestinatario');
+      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
+        imgDestinoData = canvasDest.toDataURL();
+      }
+    } catch (e) { console.warn("Error leyendo canvas de destino:", e); }
 
-      p.destNombre = nom;
-      p.destApellidos = ape;
-      p.destDni = dni;
+    p.imgDestinoData = imgDestinoData;
+    porteEnEdicionIndex = null;
 
-      document.getElementById('pNumRef').innerText = p.ref;
-      document.getElementById('pFechaCarga').innerText = p.fecha || '---';
-      document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
-      document.getElementById('pCargadorCif').innerText = p.cargadorCif || '---';
-      document.getElementById('pCargadorDir').innerText = p.cargadorDir || '---';
-      document.getElementById('pLugarCarga').innerText = p.origen || '---';
-      document.getElementById('pLugarDescarga').innerText = p.destino || '---';
-      document.getElementById('pTranspNombre').innerText = p.transpNombre || '---';
-      document.getElementById('pTranspCif').innerText = p.transpCif || '---';
-      document.getElementById('pTranspDir').innerText = p.transpDir || '---';
-      document.getElementById('pTranspMat').innerText = p.transpMat || '---';
-      document.getElementById('pTranspRem').innerText = p.transpRem || '---';
-      document.getElementById('pMercancia').innerText = p.mercancia || '---';
-      document.getElementById('pPrecioPorte').innerText = (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
-      document.getElementById('pObservaciones').innerText = p.observaciones || '---';
+    guardarMemoria();
+    alert("¡Entrega confirmada y registrada correctamente!");
 
-      document.getElementById('pSignCargadorDatos').innerText = p.cargadorDatosSign || '---';
-      document.getElementById('pSignTranspDatos').innerText = p.transpDatosSign || '---';
-      document.getElementById('pSignDestDatos').innerText = nom ? `${nom} ${ape} - DNI: ${dni}` : "Recibido en destino (Conforme)";
+    document.getElementById('secFirmaDestino').classList.add('hidden');
+    switchAppTab('terminados');
+
+    setTimeout(() => {
+      actualizarPdfEnNubeSegundoPlano(p);
+    }, 300);
+  }
+
+  async function actualizarPdfEnNubeSegundoPlano(p) {
+    try {
+      const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+      setTxt('pNumRef', p.ref);
+      setTxt('pFechaCarga', p.fecha || '---');
+      setTxt('pCargadorNombre', p.cargador || '---');
+      setTxt('pCargadorCif', p.cargadorCif || '---');
+      setTxt('pCargadorDir', p.cargadorDir || '---');
+      setTxt('pLugarCarga', p.origen || '---');
+      setTxt('pLugarDescarga', p.destino || '---');
+      setTxt('pTranspNombre', p.transpNombre || '---');
+      setTxt('pTranspCif', p.transpCif || '---');
+      setTxt('pTranspDir', p.transpDir || '---');
+      setTxt('pTranspMat', p.transpMat || '---');
+      setTxt('pTranspRem', p.transpRem || '---');
+      setTxt('pMercancia', p.mercancia || '---');
+      setTxt('pPrecioPorte', (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo");
+      setTxt('pObservaciones', p.observaciones || '---');
+      setTxt('pSignCargadorDatos', p.cargadorDatosSign || '---');
+      setTxt('pSignTranspDatos', p.transpDatosSign || '---');
+      setTxt('pSignDestDatos', p.destNombre ? `${p.destNombre} ${p.destApellidos || ''} - DNI: ${p.destDni || '---'}` : "Entregado en destino");
 
       const imgCargEl = document.getElementById('pImgCargador');
-      if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
+      if (imgCargEl) imgCargEl.style.display = p.imgCargadorData ? (imgCargEl.src = p.imgCargadorData, "block") : "none";
 
       const imgTranspEl = document.getElementById('pImgTransp');
-      if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+      if (imgTranspEl) imgTranspEl.style.display = p.imgTranspData ? (imgTranspEl.src = p.imgTranspData, "block") : "none";
 
-      const canvasDest = document.getElementById('canvasDestinatario');
       const imgDestEl = document.getElementById('pImgDest');
-      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
-        imgDestEl.src = canvasDest.toDataURL();
-        imgDestEl.style.display = "block";
-      } else {
-        imgDestEl.style.display = "none";
-      }
+      if (imgDestEl) imgDestEl.style.display = p.imgDestinoData ? (imgDestEl.src = p.imgDestinoData, "block") : "none";
 
       const nombreArchivo = `${p.ref}.pdf`;
-      const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
-      urlPdfGlobal = publicUrlData.publicUrl;
-
       const qrContainer = document.getElementById('qrcodePdf');
-      qrContainer.innerHTML = "";
-      new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
-
-      const pdfRenderArea = document.getElementById('pdfRenderArea');
-      pdfRenderArea.style.position = "absolute";
-      pdfRenderArea.style.left = "-9999px";
-      pdfRenderArea.style.top = "0px";
-      pdfRenderArea.style.width = "794px";
-      pdfRenderArea.classList.remove('hidden');
-
-      await new Promise(resolve => setTimeout(resolve, 400));
-
-      const elementoPdf = document.getElementById('pdfTemplate');
-      const opciones = {
-        margin: 8,
-        filename: nombreArchivo,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
-      const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
-
-      pdfRenderArea.classList.add('hidden');
-      pdfRenderArea.style.position = "";
-      pdfRenderArea.style.left = "";
-      pdfRenderArea.style.width = "";
-
-      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
-
-      if (uploadError) {
-        alert("Error al guardar en Supabase: " + uploadError.message);
-        btn.disabled = false;
-        btn.innerText = "Confirmar Entrega y Finalizar";
-        return;
+      if (qrContainer) {
+        qrContainer.innerHTML = "";
+        new QRCode(qrContainer, { text: p.urlPdf, width: 80, height: 80 });
       }
 
-      p.estado = 'terminado';
-      p.urlPdf = urlPdfGlobal;
-      porteEnEdicionIndex = null;
+      const pdfRenderArea = document.getElementById('pdfRenderArea');
+      if (pdfRenderArea) {
+        pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+        pdfRenderArea.classList.remove('hidden');
 
-      guardarMemoria();
-      alert("¡Entrega finalizada con éxito! El documento ha sido actualizado en la nube.");
+        await new Promise(resolve => setTimeout(resolve, 400));
 
-      btn.disabled = false;
-      btn.innerText = "Confirmar Entrega y Finalizar";
-      document.getElementById('secFirmaDestino').classList.add('hidden');
-      nuevoFormulario();
-      switchAppTab('terminados');
+        const elementoPdf = document.getElementById('pdfTemplate');
+        const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
 
-    } catch (err) {
-      alert("Error al completar entrega: " + err.message);
-      btn.disabled = false;
-      btn.innerText = "Confirmar Entrega y Finalizar";
+        const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
+
+        pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+
+        await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
+      }
+    } catch (e) {
+      console.warn("Error generando PDF en segundo plano:", e);
     }
   }
 
   function verQRModalDirecto(url, ref) {
     urlPdfGlobal = url;
     const qrBox = document.getElementById('qrInspectBox');
-    qrBox.innerHTML = "";
-    new QRCode(qrBox, { text: url, width: 220, height: 220 });
+    if (qrBox) {
+      qrBox.innerHTML = "";
+      new QRCode(qrBox, { text: url, width: 220, height: 220 });
+    }
     document.getElementById('qrInspectRef').innerText = ref;
     document.getElementById('modalQR').classList.remove('hidden');
   }
@@ -1101,8 +1115,9 @@
     return new Promise((resolve) => {
       const input = document.getElementById(inputId);
       const area = document.getElementById(targetAreaId);
+      if (!area) return resolve();
       area.innerHTML = "";
-      if (input.files && input.files[0]) {
+      if (input && input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
           const img = document.createElement('img');
