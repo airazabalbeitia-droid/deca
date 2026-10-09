@@ -136,16 +136,16 @@
 
 <!-- PANTALLA PRINCIPAL -->
 <div id="viewApp" class="container hidden">
-  <button class="btn-logout" onclick="handleLogout()">Cerrar Sesión</button>
+  <button class="btn-logout" type="button" onclick="handleLogout()">Cerrar Sesión</button>
   <h2>CARTA DE PORTE ELECTRÓNICA</h2>
   <div class="subtitle">Gestión de Documentos de Control (DeCA / e-CMR)</div>
 
   <!-- NAVEGACIÓN SECCIONES -->
   <div class="nav-pills">
-    <button id="tabNuevoBtn" class="btn-pill active" onclick="switchAppTab('nuevo')">+ Nuevo Porte</button>
-    <button id="tabTransitBtn" class="btn-pill" onclick="switchAppTab('transito')">En Tránsito (<span id="countTransit">0</span>)</button>
-    <button id="tabDoneBtn" class="btn-pill" onclick="switchAppTab('terminados')">Terminados (<span id="countDone">0</span>)</button>
-    <button id="tabClientesBtn" class="btn-pill" onclick="switchAppTab('clientes')">Clientes (<span id="countClientes">0</span>)</button>
+    <button id="tabNuevoBtn" class="btn-pill active" type="button" onclick="switchAppTab('nuevo')">+ Nuevo Porte</button>
+    <button id="tabTransitBtn" class="btn-pill" type="button" onclick="switchAppTab('transito')">En Tránsito (<span id="countTransit">0</span>)</button>
+    <button id="tabDoneBtn" class="btn-pill" type="button" onclick="switchAppTab('terminados')">Terminados (<span id="countDone">0</span>)</button>
+    <button id="tabClientesBtn" class="btn-pill" type="button" onclick="switchAppTab('clientes')">Clientes (<span id="countClientes">0</span>)</button>
   </div>
 
   <!-- SECCIÓN 1: FORMULARIO NUEVO PORTE -->
@@ -270,7 +270,7 @@
         <div class="signature-container">
           <canvas id="canvasCargador"></canvas>
           <div id="metaCargador" class="signature-meta"></div>
-          <button class="btn-secondary" onclick="limpiarCanvas('canvasCargador', 'metaCargador')">Borrar Firma</button>
+          <button class="btn-secondary" type="button" onclick="limpiarCanvas('canvasCargador', 'metaCargador')">Borrar Firma</button>
         </div>
       </div>
 
@@ -285,12 +285,12 @@
         <div class="signature-container">
           <canvas id="canvasTransportista"></canvas>
           <div id="metaTransportista" class="signature-meta"></div>
-          <button class="btn-secondary" onclick="limpiarCanvas('canvasTransportista', 'metaTransportista')">Borrar Firma</button>
+          <button class="btn-secondary" type="button" onclick="limpiarCanvas('canvasTransportista', 'metaTransportista')">Borrar Firma</button>
         </div>
       </div>
     </div>
 
-    <button id="btnGenerarMain" class="btn-action" onclick="procesarYSubirNube()">Emitir e-CMR y Guardar en Nube</button>
+    <button id="btnGenerarMain" class="btn-action" type="button" onclick="procesarYSubirNube()">Emitir e-CMR y Guardar en Nube</button>
   </div>
 
   <!-- SECCIÓN 2: PORTES EN TRÁNSITO -->
@@ -321,7 +321,7 @@
         <label>Dirección Completa:</label>
         <input type="text" id="cliDireccion" placeholder="Pol. Ind. Deba, Calle B 4, Deba">
       </div>
-      <button class="btn-action" style="background: #059669;" onclick="guardarClienteManual()">Guardar Cliente</button>
+      <button class="btn-action" style="background: #059669;" type="button" onclick="guardarClienteManual()">Guardar Cliente</button>
     </div>
 
     <div class="section-box">
@@ -360,7 +360,7 @@
     <p style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">Código QR de verificación para inspección</p>
     <div id="qrInspectBox"></div>
     <div id="qrInspectRef" style="font-weight: bold; margin-bottom: 12px; font-size: 0.9rem;"></div>
-    <button class="btn-action" style="background: #475569;" onclick="cerrarModalQR()">Cerrar / Volver</button>
+    <button class="btn-action" style="background: #475569;" type="button" onclick="cerrarModalQR()">Cerrar / Volver</button>
   </div>
 </div>
 
@@ -543,7 +543,7 @@
           <b style="color:#1e3a8a;">${c.nombre}</b> ${c.cif ? `(\${c.cif})` : ''}<br>
           <small style="color:#64748b;">${c.direccion || 'Sin dirección registrada'}</small>
         </div>
-        <button class="btn-sm" style="background:#ef4444; color:white;" onclick="eliminarCliente(${idx})">Eliminar</button>
+        <button class="btn-sm" style="background:#ef4444; color:white;" type="button" onclick="eliminarCliente(${idx})">Eliminar</button>
       `;
       container.appendChild(item);
     });
@@ -747,7 +747,6 @@
       dibujando = false;
     }
 
-    // Limpiar manejadores antiguos
     const newCanvas = canvas.cloneNode(true);
     canvas.parentNode.replaceChild(newCanvas, canvas);
 
@@ -954,7 +953,6 @@
     document.getElementById('secTransito').classList.add('hidden');
     document.getElementById('secFirmaDestino').classList.remove('hidden');
 
-    // Inicializar canvas tras hacer visible la sección
     setTimeout(() => {
       initCanvas('canvasDestinatario', 'metaDestinatario');
       limpiarCanvas('canvasDestinatario', 'metaDestinatario');
