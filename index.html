@@ -331,7 +331,7 @@
   </div>
 
   <!-- SECCIÓN FIRMA DESTINO (DESCARGA) -->
-  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f0ff;">
+  <div id="secFirmaDestino" class="section-box hidden" style="border-color: #2563eb; background: #f0f6ff;">
     <div class="section-title" style="color: #1d4ed8;">Firma de Recepción en Destino</div>
     <p style="font-size: 0.85rem; color: #475569;">Ref: <b id="destRefDisplay">---</b> | Entrega de mercancía.</p>
 
@@ -943,6 +943,10 @@
     portes.forEach((p, index) => {
       const card = document.createElement('div');
       card.className = `card-porte ${p.estado === 'terminado' ? 'done' : ''}`;
+      
+      const receptorInfo = p.destNombre ? `<br><span style="color:#059669; font-weight:600;">Receptor: ${p.destNombre} ${p.destApellidos || ''} (${p.destDni || 'Sin DNI'})</span>` : '';
+      const btnFirmaEntrega = p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" type="button" onclick="abrirFirmaDestino(${index})">Firmar Entrega</button>` : '';
+
       card.innerHTML = `
         <div class="card-header">
           <span class="card-ref">${p.ref}</span>
@@ -952,12 +956,12 @@
           <b>Cargador:</b> ${p.cargador}<br>
           <b>Origen &rarr; Destino:</b> ${p.origen} &rarr; ${p.destino}<br>
           <b>Mercancía:</b> ${p.mercancia} ${p.precioPorte && p.precioPorte !== '---' ? `| <b>Precio:</b> \${p.precioPorte}` : ''}
-          ${p.destNombre ? `<br><span style="color:#059669; font-weight:600;">Receptor: \${p.destNombre} ${p.destApellidos \vert{}\vert{} ''} (${p.destDni || 'Sin DNI'})</span>` : ''}
+          ${receptorInfo}
         </div>
         <div class="card-actions">
           <button class="btn-sm" style="background:#15803d; color:white;" type="button" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
           <a href="${p.urlPdf}" target="_blank" class="btn-sm" style="background:#0369a1; color:white; text-decoration:none;">Ver PDF</a>
-          ${p.estado === 'transito' ? `<button class="btn-sm" style="background:#2563eb; color:white;" type="button" onclick="abrirFirmaDestino(\${index})">Firmar Entrega</button>` : ''}
+          ${btnFirmaEntrega}
         </div>
       `;
 
@@ -979,11 +983,17 @@
 
     porteEnEdicionIndex = index;
     const p = portes[index];
-    document.getElementById('destRefDisplay').innerText = p.ref;
+    
+    const elRefDisp = document.getElementById('destRefDisplay');
+    if (elRefDisp) elRefDisp.innerText = p.ref;
 
-    document.getElementById('destFirmaNombre').value = p.destNombre || "";
-    document.getElementById('destFirmaApellidos').value = p.destApellidos || "";
-    document.getElementById('destFirmaDni').value = p.destDni || "";
+    const elNom = document.getElementById('destFirmaNombre');
+    const elApe = document.getElementById('destFirmaApellidos');
+    const elDni = document.getElementById('destFirmaDni');
+
+    if (elNom) elNom.value = p.destNombre || "";
+    if (elApe) elApe.value = p.destApellidos || "";
+    if (elDni) elDni.value = p.destDni || "";
 
     document.getElementById('secTransito').classList.add('hidden');
     document.getElementById('secFirmaDestino').classList.remove('hidden');
@@ -1055,80 +1065,4 @@
       setTxt('pTranspMat', p.transpMat || '---');
       setTxt('pTranspRem', p.transpRem || '---');
       setTxt('pMercancia', p.mercancia || '---');
-      setTxt('pPrecioPorte', (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo");
-      setTxt('pObservaciones', p.observaciones || '---');
-      setTxt('pSignCargadorDatos', p.cargadorDatosSign || '---');
-      setTxt('pSignTranspDatos', p.transpDatosSign || '---');
-      setTxt('pSignDestDatos', p.destNombre ? `${p.destNombre} ${p.destApellidos || ''} - DNI: ${p.destDni || '---'}` : "Entregado en destino");
-
-      const imgCargEl = document.getElementById('pImgCargador');
-      if (imgCargEl) imgCargEl.style.display = p.imgCargadorData ? (imgCargEl.src = p.imgCargadorData, "block") : "none";
-
-      const imgTranspEl = document.getElementById('pImgTransp');
-      if (imgTranspEl) imgTranspEl.style.display = p.imgTranspData ? (imgTranspEl.src = p.imgTranspData, "block") : "none";
-
-      const imgDestEl = document.getElementById('pImgDest');
-      if (imgDestEl) imgDestEl.style.display = p.imgDestinoData ? (imgDestEl.src = p.imgDestinoData, "block") : "none";
-
-      const nombreArchivo = `${p.ref}.pdf`;
-      const qrContainer = document.getElementById('qrcodePdf');
-      if (qrContainer) {
-        qrContainer.innerHTML = "";
-        new QRCode(qrContainer, { text: p.urlPdf, width: 80, height: 80 });
-      }
-
-      const pdfRenderArea = document.getElementById('pdfRenderArea');
-      if (pdfRenderArea) {
-        pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
-        pdfRenderArea.classList.remove('hidden');
-
-        await new Promise(resolve => setTimeout(resolve, 400));
-
-        const elementoPdf = document.getElementById('pdfTemplate');
-        const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-
-        const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
-
-        pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
-
-        await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, { contentType: 'application/pdf', upsert: true });
-      }
-    } catch (e) {
-      console.warn("Error generando PDF en segundo plano:", e);
-    }
-  }
-
-  function verQRModalDirecto(url, ref) {
-    urlPdfGlobal = url;
-    const qrBox = document.getElementById('qrInspectBox');
-    if (qrBox) {
-      qrBox.innerHTML = "";
-      new QRCode(qrBox, { text: url, width: 220, height: 220 });
-    }
-    document.getElementById('qrInspectRef').innerText = ref;
-    document.getElementById('modalQR').classList.remove('hidden');
-  }
-
-  function cerrarModalQR() { document.getElementById('modalQR').classList.add('hidden'); }
-
-  function procesarImagenInput(inputId, targetAreaId) {
-    return new Promise((resolve) => {
-      const input = document.getElementById(inputId);
-      const area = document.getElementById(targetAreaId);
-      if (!area) return resolve();
-      area.innerHTML = "";
-      if (input && input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const img = document.createElement('img');
-          img.src = e.target.result; img.className = 'pdf-img';
-          area.appendChild(img); resolve();
-        };
-        reader.readAsDataURL(input.files[0]);
-      } else { resolve(); }
-    });
-  }
-</script>
-
-</body>
-</html>
+      setTxt
