@@ -708,7 +708,8 @@
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     
-    canvas.width = canvas.offsetWidth || 350;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = canvas.offsetWidth || rect.width || 350;
     canvas.height = 130;
     
     const ctx = canvas.getContext('2d');
@@ -746,13 +747,15 @@
       dibujando = false;
     }
 
-    canvas.onmousedown = empezar;
-    canvas.onmousemove = mover;
-    canvas.onmouseup = parar;
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
 
-    canvas.ontouchstart = (e) => { empezar(e); };
-    canvas.ontouchmove = (e) => { mover(e); };
-    canvas.ontouchend = parar;
+    newCanvas.addEventListener('mousedown', empezar); 
+    newCanvas.addEventListener('mousemove', mover); 
+    newCanvas.addEventListener('mouseup', parar);
+    newCanvas.addEventListener('touchstart', empezar, { passive: false }); 
+    newCanvas.addEventListener('touchmove', mover, { passive: false }); 
+    newCanvas.addEventListener('touchend', parar);
   }
 
   function capturarUbicacionYHora(metaId, ctx, canvas) {
@@ -819,12 +822,8 @@
 
       const canvasCarg = document.getElementById('canvasCargador');
       const canvasTransp = document.getElementById('canvasTransportista');
-      let imgCargadorData = null, imgTranspData = null;
-
-      try {
-        if (canvasCarg && canvasEstadoFirma['canvasCargador']) imgCargadorData = canvasCarg.toDataURL();
-        if (canvasTransp && canvasEstadoFirma['canvasTransportista']) imgTranspData = canvasTransp.toDataURL();
-      } catch(e) { console.warn("Error leyendo canvas de firma:", e); }
+      const imgCargadorData = (canvasCarg && canvasEstadoFirma['canvasCargador']) ? canvasCarg.toDataURL() : null;
+      const imgTranspData = (canvasTransp && canvasEstadoFirma['canvasTransportista']) ? canvasTransp.toDataURL() : null;
 
       document.getElementById('pNumRef').innerText = ref;
       document.getElementById('pFechaCarga').innerText = pFecha;
@@ -918,7 +917,6 @@
           <b>Cargador:</b> ${p.cargador}<br>
           <b>Origen &rarr; Destino:</b> ${p.origen} &rarr; ${p.destino}<br>
           <b>Mercancía:</b> ${p.mercancia} ${p.precioPorte && p.precioPorte !== '---' ? `| <b>Precio:</b> \${p.precioPorte}` : ''}
-          ${p.destNombre ? `<br><span style="color:#059669; font-weight:600;">Receptor: \${p.destNombre} ${p.destApellidos \vert{}\vert{} ''} (${p.destDni || 'Sin DNI'})</span>` : ''}
         </div>
         <div class="card-actions">
           <button class="btn-sm" style="background:#15803d; color:white;" type="button" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
@@ -967,47 +965,27 @@
     document.getElementById('secTransito').classList.remove('hidden');
   }
 
-  function completarEntregaDestino() {
+  async function completarEntregaDestino() {
     if (porteEnEdicionIndex === null || porteEnEdicionIndex === undefined) {
       alert("Error: No hay ningún porte seleccionado para entregar.");
       return;
     }
 
+    const btn = document.getElementById('btnCompletarEntrega');
+    btn.disabled = true;
+    btn.innerText = "Generando PDF y actualizando...";
+
     const nom = document.getElementById('destFirmaNombre').value.trim();
     const ape = document.getElementById('destFirmaApellidos').value.trim();
     const dni = document.getElementById('destFirmaDni').value.trim();
 
-    const p = portes[porteEnEdicionIndex];
-
-    // 1. Actualización inmediata del estado en la app
-    p.destNombre = nom;
-    p.destApellidos = ape;
-    p.destDni = dni;
-    p.estado = 'terminado';
-
-    let imgDestinoData = null;
     try {
-      const canvasDest = document.getElementById('canvasDestinatario');
-      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
-        imgDestinoData = canvasDest.toDataURL();
-      }
-    } catch (e) { console.warn("Error leyendo canvas de destino:", e); }
+      const p = portes[porteEnEdicionIndex];
 
-    p.imgDestinoData = imgDestinoData;
-    porteEnEdicionIndex = null;
+      p.destNombre = nom;
+      p.destApellidos = ape;
+      p.destDni = dni;
 
-    guardarMemoria();
-    alert("¡Entrega confirmada y registrada correctamente!");
-
-    document.getElementById('secFirmaDestino').classList.add('hidden');
-    switchAppTab('terminados');
-
-    // 2. Generar y actualizar PDF en la nube en segundo plano
-    actualizarPdfEnNubeSegundoPlano(p);
-  }
-
-  async function actualizarPdfEnNubeSegundoPlano(p) {
-    try {
       document.getElementById('pNumRef').innerText = p.ref;
       document.getElementById('pFechaCarga').innerText = p.fecha || '---';
       document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
@@ -1026,7 +1004,7 @@
 
       document.getElementById('pSignCargadorDatos').innerText = p.cargadorDatosSign || '---';
       document.getElementById('pSignTranspDatos').innerText = p.transpDatosSign || '---';
-      document.getElementById('pSignDestDatos').innerText = p.destNombre ? `${p.destNombre} ${p.destApellidos || ''} - DNI: ${p.destDni || '---'}` : "Entregado en destino";
+      document.getElementById('pSignDestDatos').innerText = nom ? `${nom} ${ape} - DNI: ${dni}` : "Recibido en destino (Conforme)";
 
       const imgCargEl = document.getElementById('pImgCargador');
       if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
@@ -1034,33 +1012,77 @@
       const imgTranspEl = document.getElementById('pImgTransp');
       if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
 
+      const canvasDest = document.getElementById('canvasDestinatario');
       const imgDestEl = document.getElementById('pImgDest');
-      if (p.imgDestinoData) { imgDestEl.src = p.imgDestinoData; imgDestEl.style.display = "block"; } else { imgDestEl.style.display = "none"; }
+      if (canvasDest && canvasEstadoFirma['canvasDestinatario']) {
+        imgDestEl.src = canvasDest.toDataURL();
+        imgDestEl.style.display = "block";
+      } else {
+        imgDestEl.style.display = "none";
+      }
 
       const nombreArchivo = `${p.ref}.pdf`;
+      const { data: publicUrlData } = supabaseClient.storage.from('decamrs').getPublicUrl(nombreArchivo);
+      urlPdfGlobal = publicUrlData.publicUrl;
+
       const qrContainer = document.getElementById('qrcodePdf');
       qrContainer.innerHTML = "";
-      new QRCode(qrContainer, { text: p.urlPdf, width: 80, height: 80 });
+      new QRCode(qrContainer, { text: urlPdfGlobal, width: 80, height: 80 });
 
       const pdfRenderArea = document.getElementById('pdfRenderArea');
-      pdfRenderArea.style.position = "absolute"; pdfRenderArea.style.left = "-9999px"; pdfRenderArea.style.top = "0px"; pdfRenderArea.style.width = "794px";
+      pdfRenderArea.style.position = "absolute";
+      pdfRenderArea.style.left = "-9999px";
+      pdfRenderArea.style.top = "0px";
+      pdfRenderArea.style.width = "794px";
       pdfRenderArea.classList.remove('hidden');
 
       await new Promise(resolve => setTimeout(resolve, 400));
 
       const elementoPdf = document.getElementById('pdfTemplate');
-      const opciones = { margin: 8, filename: nombreArchivo, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+      const opciones = {
+        margin: 8,
+        filename: nombreArchivo,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, scrollX: 0, scrollY: 0, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
 
       const pdfBlob = await html2pdf().set(opciones).from(elementoPdf).output('blob');
 
-      pdfRenderArea.classList.add('hidden'); pdfRenderArea.style.position = ""; pdfRenderArea.style.left = ""; pdfRenderArea.style.width = "";
+      pdfRenderArea.classList.add('hidden');
+      pdfRenderArea.style.position = "";
+      pdfRenderArea.style.left = "";
+      pdfRenderArea.style.width = "";
 
-      await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, {
+      const { error: uploadError } = await supabaseClient.storage.from('decamrs').upload(nombreArchivo, pdfBlob, {
         contentType: 'application/pdf',
         upsert: true
       });
-    } catch (e) {
-      console.warn("Error en actualización de PDF en segundo plano:", e);
+
+      if (uploadError) {
+        alert("Error al guardar en Supabase: " + uploadError.message);
+        btn.disabled = false;
+        btn.innerText = "Confirmar Entrega y Finalizar";
+        return;
+      }
+
+      p.estado = 'terminado';
+      p.urlPdf = urlPdfGlobal;
+      porteEnEdicionIndex = null;
+
+      guardarMemoria();
+      alert("¡Entrega finalizada con éxito! El documento ha sido actualizado en la nube.");
+
+      btn.disabled = false;
+      btn.innerText = "Confirmar Entrega y Finalizar";
+      document.getElementById('secFirmaDestino').classList.add('hidden');
+      nuevoFormulario();
+      switchAppTab('terminados');
+
+    } catch (err) {
+      alert("Error al completar entrega: " + err.message);
+      btn.disabled = false;
+      btn.innerText = "Confirmar Entrega y Finalizar";
     }
   }
 
