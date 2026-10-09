@@ -48,7 +48,7 @@
     .card-status { font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; background: #dbeafe; color: #1e40af; }
     .card-status.done { background: #d1fae5; color: #065f46; }
     .card-body { font-size: 0.88rem; line-height: 1.5; color: #475569; }
-    .card-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
     .btn-sm { padding: 6px 10px; font-size: 0.8rem; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
 
     /* FIRMAS Y ARCHIVOS */
@@ -214,12 +214,18 @@
       </div>
     </div>
 
-    <!-- MERCANCÍA -->
+    <!-- MERCANCÍA Y PRECIO DEL PORTE -->
     <div class="section-box">
-      <div class="section-title">5. Naturaleza de la Mercancía</div>
-      <div class="field-group">
-        <label>Descripción de la Mercancía:</label>
-        <input type="text" id="mercancia" placeholder="Ej: 1 cont. 400kg / Paletas de tornillería">
+      <div class="section-title">5. Naturaleza de la Mercancía y Condiciones Comerciales</div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label>Descripción de la Mercancía:</label>
+          <input type="text" id="mercancia" placeholder="Ej: 1 cont. 400kg / Paletas de tornillería">
+        </div>
+        <div class="field-group">
+          <label>Precio del Porte / Porte (€) (Opcional):</label>
+          <input type="text" id="precioPorte" placeholder="Ej. 180 € (Dejar vacío si es solo DeCA)">
+        </div>
       </div>
       <div class="field-group">
         <label>Fotografía de la Carga (Opcional):</label>
@@ -242,7 +248,7 @@
 
     <!-- FIRMAS ORIGEN -->
     <div class="section-box">
-      <div class="section-title">7. Firmas de la Expedición (Origen)</div>
+      <div class="section-title">7. Firmas de la Expedición (Origen - Opcional)</div>
 
       <!-- Cargador -->
       <div style="margin-bottom: 16px;">
@@ -365,10 +371,16 @@
       <b>Matrícula Camión:</b> <span id="pTranspMat"></span> | <b>Remolque:</b> <span id="pTranspRem"></span>
     </div>
 
-    <div class="pdf-box">
-      <div class="pdf-box-title">5. NATURALEZA DE LA MERCANCÍA</div>
-      <span id="pMercancia"></span>
-      <div id="pFotoMercanciaArea"></div>
+    <div class="pdf-grid">
+      <div class="pdf-box">
+        <div class="pdf-box-title">5. NATURALEZA DE LA MERCANCÍA</div>
+        <span id="pMercancia"></span>
+        <div id="pFotoMercanciaArea"></div>
+      </div>
+      <div class="pdf-box">
+        <div class="pdf-box-title">PRECIO DEL PORTE / CONVENIO COMERCIAL</div>
+        <span id="pPrecioPorte"></span>
+      </div>
     </div>
 
     <div class="pdf-box">
@@ -382,16 +394,16 @@
       <div class="pdf-grid">
         <div>
           <b>Cargador:</b> <span id="pSignCargadorDatos"></span><br>
-          <img id="pImgCargador" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+          <img id="pImgCargador" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px; display: none;">
         </div>
         <div>
           <b>Transportista:</b> <span id="pSignTranspDatos"></span><br>
-          <img id="pImgTransp" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+          <img id="pImgTransp" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px; display: none;">
         </div>
       </div>
       <div style="margin-top: 8px;">
         <b>Destinatario:</b> <span id="pSignDestDatos"></span><br>
-        <img id="pImgDest" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px;">
+        <img id="pImgDest" style="max-width: 100%; height: 60px; border: 1px solid #ddd; margin-top: 4px; display: none;">
       </div>
     </div>
   </div>
@@ -648,29 +660,59 @@
 
     guardarCargadorSiEsNuevo(getVal('cargadorNombre'), getVal('cargadorCif'), getVal('cargadorDireccion'));
 
-    document.getElementById('pNumRef').innerText = ref;
-    document.getElementById('pFechaCarga').innerText = getVal('fechaCarga');
-    document.getElementById('pCargadorNombre').innerText = getVal('cargadorNombre');
-    document.getElementById('pCargadorCif').innerText = getVal('cargadorCif');
-    document.getElementById('pCargadorDir').innerText = getVal('cargadorDireccion');
-    document.getElementById('pLugarCarga').innerText = getVal('lugarCarga');
-    document.getElementById('pLugarDescarga').innerText = getVal('lugarDescarga');
-    document.getElementById('pTranspNombre').innerText = getVal('transpNombre');
-    document.getElementById('pTranspCif').innerText = getVal('transpCif');
-    document.getElementById('pTranspDir').innerText = getVal('transpDireccion');
-    document.getElementById('pTranspMat').innerText = getVal('transpMatricula');
-    document.getElementById('pTranspRem').innerText = getVal('transpRemolque');
-    document.getElementById('pMercancia').innerText = getVal('mercancia');
-    document.getElementById('pObservaciones').innerText = getVal('observaciones');
+    // Captura de datos
+    const pCargadorNombre = getVal('cargadorNombre');
+    const pCargadorCif = getVal('cargadorCif');
+    const pCargadorDir = getVal('cargadorDireccion');
+    const pLugarCarga = getVal('lugarCarga');
+    const pLugarDescarga = getVal('lugarDescarga');
+    const pTranspNombre = getVal('transpNombre');
+    const pTranspCif = getVal('transpCif');
+    const pTranspDir = getVal('transpDireccion');
+    const pTranspMat = getVal('transpMatricula');
+    const pTranspRem = getVal('transpRemolque');
+    const pMercancia = getVal('mercancia');
+    const pPrecioPorte = getVal('precioPorte');
+    const pObservaciones = getVal('observaciones');
+    const pFecha = getVal('fechaCarga');
 
-    document.getElementById('pSignCargadorDatos').innerText = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
-    document.getElementById('pSignTranspDatos').innerText = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
+    const cargadorDatosSign = `${getVal('cargadorFirmaNombre')} ${getVal('cargadorFirmaApellidos')} - DNI: ${getVal('cargadorFirmaDni')}`;
+    const transpDatosSign = `${getVal('transpFirmaNombre')} ${getVal('transpFirmaApellidos')} - DNI: ${getVal('transpFirmaDni')}`;
+
+    // Obtener imágenes de firma de origen
+    const canvasCarg = document.getElementById('canvasCargador');
+    const canvasTransp = document.getElementById('canvasTransportista');
+    const imgCargadorData = (canvasCarg && document.getElementById('metaCargador').innerText !== "") ? canvasCarg.toDataURL() : null;
+    const imgTranspData = (canvasTransp && document.getElementById('metaTransportista').innerText !== "") ? canvasTransp.toDataURL() : null;
+
+    // Llenar plantilla PDF
+    document.getElementById('pNumRef').innerText = ref;
+    document.getElementById('pFechaCarga').innerText = pFecha;
+    document.getElementById('pCargadorNombre').innerText = pCargadorNombre;
+    document.getElementById('pCargadorCif').innerText = pCargadorCif;
+    document.getElementById('pCargadorDir').innerText = pCargadorDir;
+    document.getElementById('pLugarCarga').innerText = pLugarCarga;
+    document.getElementById('pLugarDescarga').innerText = pLugarDescarga;
+    document.getElementById('pTranspNombre').innerText = pTranspNombre;
+    document.getElementById('pTranspCif').innerText = pTranspCif;
+    document.getElementById('pTranspDir').innerText = pTranspDir;
+    document.getElementById('pTranspMat').innerText = pTranspMat;
+    document.getElementById('pTranspRem').innerText = pTranspRem;
+    document.getElementById('pMercancia').innerText = pMercancia;
+    document.getElementById('pPrecioPorte').innerText = (pPrecioPorte !== "---") ? pPrecioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
+    document.getElementById('pObservaciones').innerText = pObservaciones;
+
+    document.getElementById('pSignCargadorDatos').innerText = cargadorDatosSign;
+    document.getElementById('pSignTranspDatos').innerText = transpDatosSign;
     document.getElementById('pSignDestDatos').innerText = "(Pendiente de firma en destino)";
 
-    const imgCargador = document.getElementById('canvasCargador');
-    const imgTransp = document.getElementById('canvasTransportista');
-    if (imgCargador) document.getElementById('pImgCargador').src = imgCargador.toDataURL();
-    if (imgTransp) document.getElementById('pImgTransp').src = imgTransp.toDataURL();
+    const imgCargEl = document.getElementById('pImgCargador');
+    if (imgCargadorData) { imgCargEl.src = imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
+
+    const imgTranspEl = document.getElementById('pImgTransp');
+    if (imgTranspData) { imgTranspEl.src = imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+
+    document.getElementById('pImgDest').style.display = "none";
 
     const qrContainer = document.getElementById('qrcodePdf');
     qrContainer.innerHTML = "";
@@ -699,10 +741,13 @@
       btn.disabled = false; btn.innerText = "Emitir e-CMR y Guardar en Nube"; return;
     }
 
+    // Guardar ficha completa para reconstrucción en destino
     portes.push({
-      ref: ref, fecha: getVal('fechaCarga'), cargador: getVal('cargadorNombre'),
-      origen: getVal('lugarCarga'), destino: getVal('lugarDescarga'), mercancia: getVal('mercancia'),
-      urlPdf: urlPdfGlobal, estado: 'transito'
+      ref, fecha: pFecha, cargador: pCargadorNombre, cargadorCif: pCargadorCif, cargadorDir: pCargadorDir,
+      origen: pLugarCarga, destino: pLugarDescarga, transpNombre: pTranspNombre, transpCif: pTranspCif,
+      transpDir: pTranspDir, transpMat: pTranspMat, transpRem: pTranspRem, mercancia: pMercancia,
+      precioPorte: pPrecioPorte, observaciones: pObservaciones, cargadorDatosSign, transpDatosSign,
+      imgCargadorData, imgTranspData, urlPdf: urlPdfGlobal, estado: 'transito'
     });
 
     guardarMemoria();
@@ -729,7 +774,7 @@
         <div class="card-body">
           <b>Cargador:</b> ${p.cargador}<br>
           <b>Origen &rarr; Destino:</b> ${p.origen} &rarr; ${p.destino}<br>
-          <b>Mercancía:</b> ${p.mercancia}
+          <b>Mercancía:</b> ${p.mercancia} ${p.precioPorte && p.precioPorte !== '---' ? `| <b>Precio:</b> \${p.precioPorte}` : ''}
         </div>
         <div class="card-actions">
           <button class="btn-sm" style="background:#15803d; color:white;" onclick="verQRModalDirecto('${p.urlPdf}', '${p.ref}')">Ver QR Policial</button>
@@ -788,11 +833,6 @@
     const ape = document.getElementById('destFirmaApellidos').value.trim();
     const dni = document.getElementById('destFirmaDni').value.trim();
 
-    if (!nom) {
-      alert("Por favor, escribe el nombre de la persona que recibe la mercancía.");
-      return;
-    }
-
     try {
       const p = portes[porteEnEdicionIndex];
 
@@ -800,17 +840,40 @@
       p.destApellidos = ape;
       p.destDni = dni;
 
+      // Reconstruir PDF desde la ficha almacenada
       document.getElementById('pNumRef').innerText = p.ref;
       document.getElementById('pFechaCarga').innerText = p.fecha || '---';
       document.getElementById('pCargadorNombre').innerText = p.cargador || '---';
+      document.getElementById('pCargadorCif').innerText = p.cargadorCif || '---';
+      document.getElementById('pCargadorDir').innerText = p.cargadorDir || '---';
       document.getElementById('pLugarCarga').innerText = p.origen || '---';
       document.getElementById('pLugarDescarga').innerText = p.destino || '---';
+      document.getElementById('pTranspNombre').innerText = p.transpNombre || '---';
+      document.getElementById('pTranspCif').innerText = p.transpCif || '---';
+      document.getElementById('pTranspDir').innerText = p.transpDir || '---';
+      document.getElementById('pTranspMat').innerText = p.transpMat || '---';
+      document.getElementById('pTranspRem').innerText = p.transpRem || '---';
       document.getElementById('pMercancia').innerText = p.mercancia || '---';
+      document.getElementById('pPrecioPorte').innerText = (p.precioPorte && p.precioPorte !== '---') ? p.precioPorte : "Documento de Control Administrativo (Sin valor comercial especificado)";
+      document.getElementById('pObservaciones').innerText = p.observaciones || '---';
 
-      document.getElementById('pSignDestDatos').innerText = `${nom} ${ape} - DNI: ${dni}`;
+      document.getElementById('pSignCargadorDatos').innerText = p.cargadorDatosSign || '---';
+      document.getElementById('pSignTranspDatos').innerText = p.transpDatosSign || '---';
+      document.getElementById('pSignDestDatos').innerText = nom ? `${nom} ${ape} - DNI: ${dni}` : "Recibido en destino (Sin firma electrónica)";
+
+      const imgCargEl = document.getElementById('pImgCargador');
+      if (p.imgCargadorData) { imgCargEl.src = p.imgCargadorData; imgCargEl.style.display = "block"; } else { imgCargEl.style.display = "none"; }
+
+      const imgTranspEl = document.getElementById('pImgTransp');
+      if (p.imgTranspData) { imgTranspEl.src = p.imgTranspData; imgTranspEl.style.display = "block"; } else { imgTranspEl.style.display = "none"; }
+
       const canvasDest = document.getElementById('canvasDestinatario');
-      if (canvasDest) {
-        document.getElementById('pImgDest').src = canvasDest.toDataURL();
+      const imgDestEl = document.getElementById('pImgDest');
+      if (canvasDest && document.getElementById('metaDestinatario').innerText !== "") {
+        imgDestEl.src = canvasDest.toDataURL();
+        imgDestEl.style.display = "block";
+      } else {
+        imgDestEl.style.display = "none";
       }
 
       const nombreArchivo = `${p.ref}.pdf`;
