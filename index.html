@@ -543,16 +543,37 @@
       return;
     }
 
-    cargadoresGuardados.forEach((c, idx) => {
+    cargadoresGuardados.forEach(function(c, idx) {
       const item = document.createElement('div');
       item.style.cssText = "background:#fff; border:1px solid #cbd5e1; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;";
-      item.innerHTML = `
-        <div>
-          <b style="color:#1e3a8a;">${c.nombre}</b> ${c.cif ? `(\${c.cif})` : ''}<br>
-          <small style="color:#64748b;">${c.direccion || 'Sin dirección registrada'}</small>
-        </div>
-        <button class="btn-sm" style="background:#ef4444; color:white;" type="button" onclick="eliminarCliente(${idx})">Eliminar</button>
-      `;
+      
+      const divInfo = document.createElement('div');
+      const bNombre = document.createElement('b');
+      bNombre.style.color = "#1e3a8a";
+      bNombre.textContent = c.nombre;
+      divInfo.appendChild(bNombre);
+
+      if (c.cif) {
+        divInfo.appendChild(document.createTextNode(" (" + c.cif + ")"));
+      }
+
+      divInfo.appendChild(document.createElement('br'));
+      
+      const smallDir = document.createElement('small');
+      smallDir.style.color = "#64748b";
+      smallDir.textContent = c.direccion || 'Sin dirección registrada';
+      divInfo.appendChild(smallDir);
+
+      const btnDel = document.createElement('button');
+      btnDel.className = "btn-sm";
+      btnDel.style.background = "#ef4444";
+      btnDel.style.color = "white";
+      btnDel.type = "button";
+      btnDel.textContent = "Eliminar";
+      btnDel.onclick = function() { eliminarCliente(idx); };
+
+      item.appendChild(divInfo);
+      item.appendChild(btnDel);
       container.appendChild(item);
     });
   }
